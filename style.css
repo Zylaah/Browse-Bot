@@ -50,4 +50,23 @@
   --browse-bot-warning-bg: light-dark(#fdedd3, #62420e);
   --browse-bot-muted: #71717a;
   --browse-bot-muted-bg: light-dark(#f4f4f5, #27272a);
+
+  /* Arc-style chat input surface */
+  --browse-bot-input-bg: light-dark(
+    color-mix(in srgb, var(--acrylic-bg) 92%, black 8%),
+    color-mix(in srgb, var(--acrylic-bg) 88%, white 12%)
+  );
+  --browse-bot-input-border: light-dark(
+    color-mix(in srgb, black 8%, transparent 92%),
+    color-mix(in srgb, white 14%, transparent 86%)
+  );
+  --browse-bot-input-focus-ring: color-mix(
+    in srgb,
+    var(--browser-primary-color) 28%,
+    transparent 72%
+  );
+  --browse-bot-divider: light-dark(
+    color-mix(in srgb, black 10%, transparent 90%),
+    color-mix(in srgb, white 12%, transparent 88%)
+  );
 }
