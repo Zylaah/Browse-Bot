@@ -13,7 +13,7 @@ A **fork** of [Vertex-Mods/Browse-Bot](https://github.com/Vertex-Mods/Browse-Bot
 - **Multi-provider LLM** (Gemini, Mistral, OpenAI, Claude, Grok, Perplexity, Cerebras, Ollama)
 - **Page content awareness** — page text is sent in the system prompt for Q&A
 - **Optional citations** (structured quotes from the page)
-- **Streaming responses**
+- **Streaming responses** via direct API `fetch` (same pattern as [urlbar-ai](https://github.com/Zylaah/urlbar-ai)), with **marked.js** + **DOMPurify** for markdown
 - **Context menu** — Ask AI / summarize with selection templates
 - **Zen Command Palette** — Summarize page, expand findbar, open settings
 - **Customizable** via Sine settings or `about:config`

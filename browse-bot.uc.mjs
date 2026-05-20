@@ -13,7 +13,16 @@
 // To make changes, please edit the source files in the repository:
 // https://github.com/BibekBhusal0/zen-custom-js
 
-import { n as number, o as object, s as string, a as array, c as createCerebras, b as createPerplexity, d as createOpenAI, e as createOllama, f as createMistral, x as xai, g as createGoogleGenerativeAI, h as createAnthropic, j as generateText, k as streamText, l as output_exports } from './vercel-ai-sdk.uc.mjs';
+import {
+  initMarkdownVendors,
+  renderMarkdownToElement,
+  createProviderFacades,
+  resolveProvider,
+  buildChatMessages,
+  streamChatText,
+  completeChatText,
+  formatLlmError,
+} from "./llm-core.uc.mjs";
 
 function setPref(key, value) {
   try {
@@ -1522,82 +1531,12 @@ function clampFindbarWidth(width) {
 }
 
 /**
- * Escapes text for safe HTML insertion.
- * @param {string} text
- * @returns {string}
- */
-function escapeHtml(text) {
-  return String(text)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/**
- * Lightweight markdown → HTML when Sine's parseMD is unavailable.
+ * Renders markdown into a target element (marked + DOMPurify, same as urlbar-ai).
  * @param {string} markdown
- * @returns {string}
+ * @param {HTMLElement} target
  */
-function markdownToHtmlFallback(markdown) {
-  const fences = [];
-  let text = String(markdown).replace(/```([\s\S]*?)```/g, (_, code) => {
-    const token = `@@FENCE${fences.length}@@`;
-    fences.push(`<pre><code>${escapeHtml(code.trim())}</code></pre>`);
-    return token;
-  });
-
-  text = escapeHtml(text);
-  fences.forEach((html, i) => {
-    text = text.replace(`@@FENCE${i}@@`, html);
-  });
-
-  text = text
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>[\s\S]*?<\/li>)(\s*<li>)/g, "$1$2")
-    .replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, "<ul>$1</ul>")
-    .replace(/\n\n+/g, "</p><p>")
-    .replace(/\n/g, "<br>");
-
-  return `<p>${text}</p>`;
-}
-
-/**
- * Renders markdown into a .markdown-body element.
- * @param {string} markdown
- * @param {boolean} [convertHTML=true] - Return element if true, else innerHTML string.
- * @returns {HTMLElement|string}
- */
-function parseMD(markdown, convertHTML = true) {
-  const htmlContent = parseElement(`<div class="markdown-body"></div>`);
-  let parsed = false;
-
-  try {
-    const domUtils = ChromeUtils.importESModule(
-      "chrome://userscripts/content/engine/utils/dom.mjs"
-    ).default;
-    if (typeof domUtils.parseMD === "function") {
-      const browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
-      domUtils.parseMD(htmlContent, markdown, "", browserWindow || window);
-      parsed = true;
-    }
-  } catch (e) {
-    PREFS.debugLog("Sine parseMD unavailable, using built-in fallback:", e);
-  }
-
-  if (!parsed) {
-    htmlContent.innerHTML = markdownToHtmlFallback(markdown);
-  }
-
-  if (convertHTML) return htmlContent;
-  return htmlContent.innerHTML;
+function renderMarkdown(markdown, target) {
+  renderMarkdownToElement(markdown, target);
 }
 
 PREFS.setInitialPrefs();
@@ -2005,16 +1944,12 @@ const browseBotFindbar = {
             if (citations && citations.length > 0) {
               aiMessageDiv.dataset.citations = JSON.stringify(citations);
             }
-            const textToParse = answer.replace(
-              /\[(\d+)\]/g,
-              `<span class="citation-link" data-citation-id="$1">[$1]</span>`
-            );
-            contentDiv.appendChild(parseMD(textToParse));
+            renderMarkdown(answer, contentDiv);
           } else {
             if (result.text.trim() === "") {
               aiMessageDiv.remove();
             } else {
-              contentDiv.appendChild(parseMD(result.text));
+              renderMarkdown(result.text, contentDiv);
             }
           }
         } finally {
@@ -2028,9 +1963,9 @@ const browseBotFindbar = {
         for await (const delta of result.textStream) {
           fullText += delta;
           try {
-            contentDiv.innerHTML = parseMD(fullText, false);
+            renderMarkdown(fullText, contentDiv);
           } catch (e) {
-            PREFS.debugError("innerHTML assignment failed:", e.message);
+            PREFS.debugError("Markdown render failed:", e.message);
           }
           setTimeout(() => this._updateFindbarDimensions(), 0);
           if (messagesContainer) {
@@ -2045,7 +1980,8 @@ const browseBotFindbar = {
       if (e.name !== "AbortError") {
         PREFS.debugError("Error sending message:", e);
         if (aiMessageDiv) aiMessageDiv.remove();
-        this.addChatMessage({ role: "error", content: `**Error**: ${e.message}` });
+        const errMsg = formatLlmError(e);
+        this.addChatMessage({ role: "error", content: `**Error**: ${errMsg}` });
       } else {
         PREFS.debugLog("Streaming aborted by user.");
         if (aiMessageDiv) aiMessageDiv.remove();
@@ -2321,21 +2257,17 @@ const browseBotFindbar = {
     }
 
     const messageDiv = parseElement(`<div class="chat-message chat-message-${type}"></div>`);
-    const contentDiv = parseElement(`<div class="message-content"></div>`);
+    const contentDiv = parseElement(`<div class="message-content markdown-body"></div>`);
 
     if (role === "assistant" && typeof content === "object" && content.answer !== undefined) {
-      // Case 1: Live response from generateObject for citations
+      // Case 1: Live citation-mode response { answer, citations }
       const { answer, citations } = content;
       if (citations && citations.length > 0) {
         messageDiv.dataset.citations = JSON.stringify(citations);
       }
-      const textToParse = answer.replace(
-        /\[(\d+)\]/g,
-        `<span class="citation-link" data-citation-id="$1">[$1]</span>`
-      );
-      contentDiv.appendChild(parseMD(textToParse));
+      renderMarkdown(answer, contentDiv);
     } else {
-      // Case 2: String content (from user, stream, generateText, or history)
+      // Case 2: String content (from user, stream, completion, or history)
       const textContent = typeof content === "string" ? content : (content[0]?.text ?? "");
 
       if (role === "assistant" && PREFS.citationsEnabled) {
@@ -2345,14 +2277,10 @@ const browseBotFindbar = {
         if (citations && citations.length > 0) {
           messageDiv.dataset.citations = JSON.stringify(citations);
         }
-        const textToParse = answer.replace(
-          /\[(\d+)\]/g,
-          `<span class="citation-link" data-citation-id="$1">[$1]</span>`
-        );
-        contentDiv.appendChild(parseMD(textToParse));
+        renderMarkdown(answer, contentDiv);
       } else {
         // Sub-case: Simple string content
-        contentDiv.appendChild(parseMD(textContent));
+        renderMarkdown(textContent, contentDiv);
       }
     }
 
@@ -2870,390 +2798,20 @@ function googleFaviconAPI(domainOrUrl, size = 32) {
   return `https://s2.googleusercontent.com/s2/favicons?domain_url=https://${domain}&sz=${size}`;
 }
 
-// Base object with shared logic for all providers
-const providerPrototype = {
-  get apiKey() {
-    return PREFS.getPref(this.apiPref);
-  },
-  set apiKey(v) {
-    if (typeof v === "string" && this.apiPref) PREFS.setPref(this.apiPref, v);
-  },
-  get model() {
-    return PREFS.getPref(this.modelPref);
-  },
-  set model(v) {
-    if (this.AVAILABLE_MODELS.includes(v)) PREFS.setPref(this.modelPref, v);
-  },
-  getModel() {
-    return this.create({ apiKey: this.apiKey })(this.model);
-  },
-};
+initMarkdownVendors();
 
-const mistral = Object.assign(Object.create(providerPrototype), {
-  name: "mistral",
-  label: "Mistral AI",
-  faviconUrl: googleFaviconAPI("mistral.ai"),
-  apiKeyUrl: "https://console.mistral.ai/api-keys/",
-  AVAILABLE_MODELS: [
-    "pixtral-large-latest",
-    "mistral-large-latest",
-    "mistral-medium-latest",
-    "mistral-medium-2505",
-    "mistral-small-latest",
-    "magistral-small-2506",
-    "magistral-medium-2506",
-    "ministral-3b-latest",
-    "ministral-8b-latest",
-    "pixtral-12b-2409",
-    "open-mistral-7b",
-    "open-mixtral-8x7b",
-    "open-mixtral-8x22b",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "pixtral-large-latest": "Pixtral Large (Latest)",
-    "mistral-large-latest": "Mistral Large (Latest)",
-    "mistral-medium-latest": "Mistral Medium (Latest)",
-    "mistral-medium-2505": "Mistral Medium (2505)",
-    "mistral-small-latest": "Mistral Small(Latest)",
-    "magistral-small-2506": "Magistral Small (2506)",
-    "magistral-medium-2506": "Magistral Medium (2506)",
-    "ministral-3b-latest": "Ministral 3B (Latest)",
-    "ministral-8b-latest": "Ministral 8B (Latest)",
-    "pixtral-12b-2409": "Pixtral 12B (2409)",
-    "open-mistral-7b": "Open Mistral 7B",
-    "open-mixtral-8x7b": "Open Mixtral 8x7B",
-    "open-mixtral-8x22b": "Open Mixtral 8x22B",
-  },
-  modelPref: PREFS.MISTRAL_MODEL,
-  apiPref: PREFS.MISTRAL_API_KEY,
-  create: createMistral,
-});
-
-const gemini = Object.assign(Object.create(providerPrototype), {
-  name: "gemini",
-  label: "Google Gemini",
-  faviconUrl: googleFaviconAPI("gemini.google.com"),
-  apiKeyUrl: "https://aistudio.google.com/app/apikey",
-  AVAILABLE_MODELS: [
-    "gemini-3-pro-preview",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-1.5-pro",
-    "gemini-1.5-pro-latest",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-flash-8b",
-    "gemini-1.5-flash-8b-latest",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "gemini-3-pro-preview": "Gemini 3 Pro Preview",
-    "gemini-2.5-pro": "Gemini 2.5 Pro",
-    "gemini-2.5-flash": "Gemini 2.5 Flash",
-    "gemini-2.5-flash-lite": "Gemini 2.5 Flash Lite",
-    "gemini-2.0-flash": "Gemini 2.0 Flash",
-    "gemini-1.5-pro": "Gemini 1.5 Pro",
-    "gemini-1.5-pro-latest": "Gemini 1.5 Pro Latest",
-    "gemini-1.5-flash": "Gemini 1.5 Flash",
-    "gemini-1.5-flash-latest": "Gemini 1.5 Flash Latest",
-    "gemini-1.5-flash-8b": "Gemini 1.5 Flash 8B",
-    "gemini-1.5-flash-8b-latest": "Gemini 1.5 Flash 8B Latest",
-  },
-  modelPref: PREFS.GEMINI_MODEL,
-  apiPref: PREFS.GEMINI_API_KEY,
-  create: createGoogleGenerativeAI,
-});
-
-const openai = Object.assign(Object.create(providerPrototype), {
-  name: "openai",
-  label: "OpenAI GPT",
-  faviconUrl: googleFaviconAPI("chatgpt.com"),
-  apiKeyUrl: "https://platform.openai.com/account/api-keys",
-  AVAILABLE_MODELS: [
-    "gpt-5.2-pro",
-    "gpt-5.2-chat-latest",
-    "gpt-5.2",
-    "gpt-5.1-codex-mini",
-    "gpt-5.1-codex",
-    "gpt-5.1-chat-latest",
-    "gpt-5.1",
-    "gpt-5-pro",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-4-turbo",
-    "gpt-4",
-    "gpt-3.5-turbo",
-    "o1",
-    "o3-mini",
-    "o3",
-    "o4-mini",
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-5-chat-latest",
-    "gpt-5-codex",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "gpt-5.2-pro": "GPT 5.2 Pro",
-    "gpt-5.2-chat-latest": "GPT 5.2 Latest",
-    "gpt-5.2": "GPT 5.2",
-    "gpt-5.1-codex-mini": "GPT 5.1 Mini",
-    "gpt-5.1-codex": "GPT 5.1 Codex",
-    "gpt-5.1-chat-latest": "GPT 5.1 Latest",
-    "gpt-5.1": "GPT 5.1",
-    "gpt-5-pro": "GPT 5 Pro",
-    "gpt-4.1": "GPT 4.1",
-    "gpt-4.1-mini": "GPT 4.1 Mini",
-    "gpt-4.1-nano": "GPT 4.1 Nano",
-    "gpt-4o": "GPT 4o",
-    "gpt-4o-mini": "GPT 4o Mini",
-    "gpt-4-turbo": "GPT 4 Turbo",
-    "gpt-4": "GPT 4",
-    "gpt-3.5-turbo": "GPT 3.5 Turbo",
-    o1: "O1",
-    "o3-mini": "O3 Mini",
-    o3: "O3",
-    "o4-mini": "O4 Mini",
-    "gpt-5": "GPT 5",
-    "gpt-5-mini": "GPT 5 Mini",
-    "gpt-5-nano": "GPT 5 Nano",
-    "gpt-5-chat-latest": "GPT 5 Latest",
-    "gpt-5-codex": "GPT 5 Codex",
-  },
-  modelPref: PREFS.OPENAI_MODEL,
-  apiPref: PREFS.OPENAI_API_KEY,
-  create: createOpenAI,
-});
-
-const claude = Object.assign(Object.create(providerPrototype), {
-  name: "claude",
-  label: "Anthropic Claude",
-  faviconUrl: googleFaviconAPI("anthropic.com"),
-  apiKeyUrl: "https://console.anthropic.com/dashboard",
-  AVAILABLE_MODELS: [
-    "claude-opus-4-5",
-    "claude-hiku-4-5",
-    "claude-sonnet-4-5",
-    "claude-opus-4-1",
-    "claude-opus-4-0",
-    "claude-sonnet-4-0",
-    "claude-3-7-sonnet-latest",
-    "claude-3-5-haiku-latest",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "claude-opus-4-5": "Claude Opus 4.5",
-    "claude-hiku-4-5": "Claude Hiku 4.5",
-    "claude-sonnet-4-5": "Claude Sonnet 4.5",
-    "claude-opus-4-1": "Claude Opus 4.1",
-    "claude-opus-4-0": "Claude Opus 4.0",
-    "claude-sonnet-4-0": "Claude Sonnet 4.0",
-    "claude-3-7-sonnet-latest": "Claude 3.7 Sonnet Latest",
-    "claude-3-5-haiku-latest": "Claude 3.5 Haiku Latest",
-  },
-  modelPref: PREFS.CLAUDE_MODEL,
-  apiPref: PREFS.CLAUDE_API_KEY,
-  create: createAnthropic,
-});
-
-const grok = Object.assign(Object.create(providerPrototype), {
-  name: "grok",
-  label: "xAI Grok",
-  faviconUrl: googleFaviconAPI("x.ai"),
-  apiKeyUrl: "https://x.ai/api",
-  AVAILABLE_MODELS: [
-    "grok-4-fast-non-reasoning",
-    "grok-4-fast-reasoning",
-    "grok-code-fast-1",
-    "grok-4",
-    "grok-3",
-    "grok-3-latest",
-    "grok-3-fast",
-    "grok-3-fast-latest",
-    "grok-3-mini",
-    "grok-3-mini-latest",
-    "grok-3-mini-fast",
-    "grok-3-mini-fast-latest",
-    "grok-2",
-    "grok-2-latest",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "grok-4-fast-non-reasoning": "Grok 4 Fast (Non-Reasoning)",
-    "grok-4-fast-reasoning": "Grok 4 Fast (Reasoning)",
-    "grok-code-fast-1": "Grok Code Fast 1",
-    "grok-4": "Grok 4",
-    "grok-3": "Grok 3",
-    "grok-3-latest": "Grok 3 Latest",
-    "grok-3-fast": "Grok 3 Fast",
-    "grok-3-fast-latest": "Grok 3 Fast Latest",
-    "grok-3-mini": "Grok 3 Mini",
-    "grok-3-mini-latest": "Grok 3 Mini Latest",
-    "grok-3-mini-fast": "Grok 3 Mini Fast",
-    "grok-3-mini-fast-latest": "Grok 3 Mini Fast Latest",
-    "grok-2": "Grok 2",
-    "grok-2-latest": "Grok 2 Latest",
-  },
-  modelPref: PREFS.GROK_MODEL,
-  apiPref: PREFS.GROK_API_KEY,
-  create: xai,
-});
-
-const perplexity = Object.assign(Object.create(providerPrototype), {
-  name: "perplexity",
-  label: "Perplexity AI",
-  faviconUrl: googleFaviconAPI("perplexity.ai"),
-  apiKeyUrl: "https://perplexity.ai",
-  AVAILABLE_MODELS: [
-    "sonar-deep-research",
-    "sonar-reasoning-pro",
-    "sonar-reasoning",
-    "sonar-pro",
-    "sonar",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "sonar-deep-research": "Sonar Deep Research",
-    "sonar-reasoning-pro": "Sonar Reasoning Pro",
-    "sonar-reasoning": "Sonar Reasoning",
-    "sonar-pro": "Sonar Pro",
-    sonar: "Sonar",
-  },
-  modelPref: PREFS.PERPLEXITY_MODEL,
-  apiPref: PREFS.PERPLEXITY_API_KEY,
-  create: createPerplexity,
-});
-
-const cerebras = Object.assign(Object.create(providerPrototype), {
-  name: "cerebras",
-  label: "Cerebras AI",
-  faviconUrl: "https://www.google.com/s2/favicons?sz=32&domain_url=cerebras.ai",
-  apiKeyUrl: "https://cerebras.ai",
-  AVAILABLE_MODELS: [
-    "llama3.1-8b",
-    "llama-3.3-70b",
-    "gpt-oss-120b",
-    "qwen-3-32b",
-    "qwen-3-235b-a22b-instruct-2507",
-    "zai-glm-4.6",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "llama3.1-8b": "Llama 3.1 8B",
-    "llama-3.3-70b": "Llama 3.3 70B",
-    "gpt-oss-120b": "OpenAI GPT OSS 120B",
-    "qwen-3-32b": "Qwen 3 32B",
-    "qwen-3-235b-a22b-instruct-2507": "Qwen 3 235B Instruct (Preview)",
-    "zai-glm-4.6": "Z.ai GLM 4.6 (Preview)",
-  },
-  modelPref: PREFS.CEREBRAS_MODEL,
-  apiPref: PREFS.CEREBRAS_API_KEY,
-  create: createCerebras,
-});
-
-const ollama = Object.assign(Object.create(providerPrototype), {
-  name: "ollama",
-  label: "Ollama (local)",
-  faviconUrl: googleFaviconAPI("ollama.com"),
-  apiKeyUrl: "",
-  baseUrlPref: PREFS.OLLAMA_BASE_URL,
-  get baseUrl() {
-    return PREFS.ollamaBaseUrl;
-  },
-  set baseUrl(v) {
-    if (typeof v === "string") PREFS.ollamaBaseUrl = v;
-  },
-  AVAILABLE_MODELS: [
-    "deepseek-r1:8b",
-    "deepseek-r1:1.5b",
-    "deepseek-r1:7b",
-    "deepseek-r1:14b",
-    "deepseek-r1:32b",
-    "deepseek-r1:70b",
-    "mixtral:8x22b",
-    "mixtral:8x7b",
-    "qwen3:0.6b",
-    "qwen3:1.7b",
-    "qwen3:4b",
-    "qwen3:8b",
-    "qwen3:14b",
-    "qwen3:32b",
-    "qwen3:30b-a3b",
-    "qwen3:235b-a22b",
-    "llama4:scout",
-    "llama4:maverick",
-  ],
-  AVAILABLE_MODELS_LABELS: {
-    "deepseek-r1:8b": "DeepSeek R1 (8B parameters)",
-    "deepseek-r1:1.5b": "DeepSeek R1 (1.5B parameters)",
-    "deepseek-r1:7b": "DeepSeek R1 (7B parameters)",
-    "deepseek-r1:14b": "DeepSeek R1 (14B parameters)",
-    "deepseek-r1:32b": "DeepSeek R1 (32B parameters)",
-    "deepseek-r1:70b": "DeepSeek R1 (70B parameters)",
-    "mixtral:8x22b": "Mixtral (8x22B)",
-    "mixtral:8x7b": "Mixtral (8x7B)",
-    "qwen3:0.6b": "Qwen3 (0.6B parameters)",
-    "qwen3:1.7b": "Qwen3 (1.7B parameters)",
-    "qwen3:4b": "Qwen3 (4B parameters)",
-    "qwen3:8b": "Qwen3 (8B parameters)",
-    "qwen3:14b": "Qwen3 (14B parameters)",
-    "qwen3:32b": "Qwen3 (32B parameters)",
-    "qwen3:30b-a3b": "Qwen3 (30B-A3B)",
-    "qwen3:235b-a22b": "Qwen3 (235B-A22B)",
-    "llama4:scout": "Llama 4 Scout",
-    "llama4:maverick": "Llama 4 Maverick",
-  },
-  modelPref: PREFS.OLLAMA_MODEL,
-  get apiKey() {
-    return "not_required";
-  },
-  set apiKey(v) {
-    return;
-    // Not required at all
-  },
-  getModel() {
-    const ollama = createOllama({
-      baseURL: this.baseUrl,
-    });
-    return ollama(this.model);
-  },
-});
-
-const citationSchema = object({
-  answer: string().describe("The conversational answer to the user's query."),
-  citations: array(
-      object({
-        id: number()
-          .describe(
-            "Unique identifier for the citation, corresponding to the marker in the answer text."
-          ),
-        source_quote: string()
-          .describe(
-            "The exact, verbatim quote from the source text that supports the information."
-          ),
-      })
-    )
-    .describe("An array of citation objects from the source text."),
-});
-
-/**
- * A base class for interacting with language models.
- * It handles provider management, history, and provides generic methods
- * for text generation, streaming, and object generation.
- */
-class LLM {
+class BrowseBotLLM {
   constructor() {
     this.history = [];
-    this.AVAILABLE_PROVIDERS = {
-      claude: claude,
-      gemini: gemini,
-      grok: grok,
-      mistral: mistral,
-      ollama: ollama,
-      openai: openai,
-      perplexity: perplexity,
-      cerebras: cerebras,
-    };
+    this.AVAILABLE_PROVIDERS = createProviderFacades(PREFS);
+    this.systemInstruction = "";
+  }
+
+  get streamEnabled() {
+    return PREFS.streamEnabled;
+  }
+  get citationsEnabled() {
+    return PREFS.citationsEnabled;
   }
 
   get llmProvider() {
@@ -3262,7 +2820,8 @@ class LLM {
 
   get currentProvider() {
     return (
-      this.AVAILABLE_PROVIDERS[this.llmProvider || "gemini"] || this.AVAILABLE_PROVIDERS["gemini"]
+      this.AVAILABLE_PROVIDERS[this.llmProvider || "gemini"] ||
+      this.AVAILABLE_PROVIDERS.gemini
     );
   }
 
@@ -3275,130 +2834,15 @@ class LLM {
     }
   }
 
-  async getSystemPrompt() {
-    // Base implementation. Should be overridden by extending classes.
-    return "";
-  }
-
-  async generateText(options) {
-    const { prompt, ...rest } = options;
-    if (prompt) {
-      this.history.push({ role: "user", content: prompt });
-    }
-
-    const config = {
-      model: this.currentProvider.getModel(),
-      system: await this.getSystemPrompt(),
-      messages: this.history,
+  getSampling() {
+    return {
       temperature: PREFS.llmTemperature,
-      topP: PREFS.llmTopP,
-      topK: PREFS.llmTopK,
-      frequencyPenalty: PREFS.llmFrequencyPenalty,
-      presencePenalty: PREFS.llmPresencePenalty,
-      maxOutputTokens: PREFS.llmMaxOutputTokens,
-      ...rest,
+      maxTokens: PREFS.llmMaxOutputTokens,
     };
-
-    const result = await generateText(config);
-
-    // Only update history if it wasn't overridden in the options
-    if (!rest.messages) {
-      this.history.push(...result.response.messages);
-    }
-    return result;
   }
 
-  async streamText(options) {
-    const { prompt, onFinish, ...rest } = options;
-    if (prompt) {
-      this.history.push({ role: "user", content: prompt });
-    }
-
-    const self = this;
-    const config = {
-      model: this.currentProvider.getModel(),
-      system: await this.getSystemPrompt(),
-      messages: this.history,
-      temperature: PREFS.llmTemperature,
-      topP: PREFS.llmTopP,
-      topK: PREFS.llmTopK,
-      frequencyPenalty: PREFS.llmFrequencyPenalty,
-      presencePenalty: PREFS.llmPresencePenalty,
-      maxOutputTokens: PREFS.llmMaxOutputTokens,
-      ...rest,
-      async onFinish(result) {
-        // Only update history if it wasn't overridden in the options
-        if (!rest.messages) {
-          self.history.push(...result.response.messages);
-        }
-        if (onFinish) onFinish(result);
-      },
-    };
-    return streamText(config);
-  }
-
-  async generateTextWithCitations(options) {
-    const { prompt, ...rest } = options;
-    if (prompt) {
-      this.history.push({ role: "user", content: prompt });
-    }
-
-    const config = {
-      model: this.currentProvider.getModel(),
-      system: await this.getSystemPrompt(),
-      messages: this.history,
-      output: output_exports.object({ schema: citationSchema }),
-      temperature: PREFS.llmTemperature,
-      topP: PREFS.llmTopP,
-      topK: PREFS.llmTopK,
-      frequencyPenalty: PREFS.llmFrequencyPenalty,
-      presencePenalty: PREFS.llmPresencePenalty,
-      maxOutputTokens: PREFS.llmMaxOutputTokens,
-      ...rest,
-    };
-
-    const { output } = await generateText(config);
-
-    // Only update history if it wasn't overridden in the options
-    if (!rest.messages) {
-      this.history.push({ role: "assistant", content: JSON.stringify(output) });
-    }
-    return output;
-  }
-
-  getHistory() {
-    return [...this.history];
-  }
-
-  clearData() {
-    PREFS.debugLog("Clearing LLM history and system prompt.");
-    this.history = [];
-  }
-
-  getLastMessage() {
-    return this.history.length > 0 ? this.history[this.history.length - 1] : null;
-  }
-}
-
-/**
- * LLM class for the Findbar AI chat — page-context Q&A with optional citations.
- */
-class BrowseBotLLM extends LLM {
-  constructor() {
-    super();
-    this.systemInstruction = "";
-  }
-
-  get streamEnabled() {
-    return PREFS.streamEnabled;
-  }
-  get citationsEnabled() {
-    return PREFS.citationsEnabled;
-  }
-
-  async updateSystemPrompt() {
-    PREFS.debugLog("Updating system prompt...");
-    this.systemInstruction = await this.getSystemPrompt();
+  resolveActiveProvider() {
+    return resolveProvider(PREFS.llmProvider || "gemini", PREFS);
   }
 
   async getSystemPrompt() {
@@ -3418,63 +2862,9 @@ class BrowseBotLLM extends LLM {
 
 ## Citation Instructions
 - **Output Format**: Your entire response **MUST** be a single, valid JSON object with two keys: \`"answer"\` and \`"citations"\`.
-- **Answer**: The \`"answer"\` key holds the conversational text. Use Markdown Syntax for formatting like lists, bolding, etc.
-- **Citations**: The \`"citations"\` key holds an array of citation objects.
-- **When to Cite**: For any statement of fact that is directly supported by the provided page content, you **SHOULD** provide a citation. It is not mandatory for every sentence.
-- **How to Cite**: In your \`"answer"\`, append a marker like \`[1]\`, \`[2]\`. Each marker must correspond to a citation object in the array.
-- **CRITICAL RULES FOR CITATIONS**:
-    1.  **source_quote**: This MUST be the **exact, verbatim, and short** text from the page content.
-    2.  **Accuracy**: The \`"source_quote"\` field must be identical to the text on the page, including punctuation and casing.
-    3.  **Multiple Citations**: If multiple sources support one sentence, format them like \`[1][2]\`, not \`[1,2]\`.
-    4.  **Unique IDs**: Each citation object **must** have a unique \`"id"\` that matches its marker in the answer text.
-    5.  **Short**: The source quote must be short no longer than one sentence and should not contain line brakes.
-- **Do Not Cite**: Do not cite your own abilities, general greetings, or information not from the provided text. Make sure the text is from page text content not from page title or URL.
-
-### Citation Examples
-
-Here are some examples demonstrating the correct JSON output format.
-
-**Example 1: General Question with a List and Multiple Citations**
--   **User Prompt:** "What are the main benefits of using this library?"
--   **Your JSON Response:**
-    \`\`\`json
-    {
-      "answer": "This library offers several key benefits:\n\n*   **High Performance**: It is designed to be fast and efficient for large-scale data processing [1].\n*   **Flexibility**: You can integrate it with various frontend frameworks [2].\n*   **Ease of Use**: The API is well-documented and simple to get started with [3].",
-      "citations": [
-        {
-          "id": 1,
-          "source_quote": "The new architecture provides significant performance gains, especially for large-scale data processing."
-        },
-        {
-          "id": 2,
-          "source_quote": "It is framework-agnostic, offering adapters for React, Vue, and Svelte."
-        },
-        {
-          "id": 3,
-          "source_quote": "Our extensive documentation and simple API make getting started a breeze."
-        }
-      ]
-    }
-    \`\`\`
-
-**Example 2: A Sentence Supported by Two Different Sources**
--   **User Prompt:** "Tell me about the project's history."
--   **Your JSON Response:**
-    \`\`\`json
-    {
-      "answer": "The project was initially created in 2021 [1] and later became open-source in 2022 [2].",
-      "citations": [
-        {
-          "id": 1,
-          "source_quote": "Development began on the initial prototype in early 2021."
-        },
-        {
-          "id": 2,
-          "source_quote": "We are proud to announce that as of September 2022, the project is fully open-source."
-        }
-      ]
-    }
-    \`\`\`
+- **Answer**: The \`"answer"\` key holds the conversational text. Use Markdown Syntax for formatting.
+- **Citations**: The \`"citations"\` key holds an array of citation objects with \`id\` and \`source_quote\` (verbatim from the page).
+- **How to Cite**: In your \`"answer"\`, append markers like \`[1]\`, \`[2]\`.
 `;
     }
 
@@ -3495,7 +2885,6 @@ Here is the initial info about the current page:
 
     if (PREFS.citationsEnabled) {
       try {
-        // Find the JSON part of the response
         const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
         const jsonString = jsonMatch ? jsonMatch[1] : responseText;
         const parsedContent = JSON.parse(jsonString);
@@ -3505,60 +2894,81 @@ Here is the initial info about the current page:
           if (Array.isArray(parsedContent.citations)) {
             citations = parsedContent.citations;
           }
-        } else {
-          // Parsed JSON but 'answer' field is missing or not a string.
-          PREFS.debugLog("AI response JSON missing 'answer' field or not a string:", parsedContent);
         }
       } catch (e) {
-        // JSON parsing failed, keep rawText as answer.
-        PREFS.debugError(
-          "Failed to parse AI message content as JSON:",
-          e,
-          "Raw Text:",
-          responseText
-        );
+        PREFS.debugError("Failed to parse citation JSON:", e, responseText);
       }
     }
     return { answer, citations };
   }
 
+  getHistory() {
+    return [...this.history];
+  }
+
+  clearData() {
+    PREFS.debugLog("Clearing LLM history.");
+    this.history = [];
+    this.systemInstruction = "";
+  }
+
   async sendMessage(prompt, abortSignal) {
-    PREFS.debugLog("Current history before sending:", this.history);
+    PREFS.debugLog("Sending message via fetch-based LLM");
+
+    const provider = this.resolveActiveProvider();
+    if (provider.needsApiKey && !provider.apiKey) {
+      throw new Error(`Missing API key for ${provider.label}. Add it in BrowseBot settings.`);
+    }
+
+    this.history.push({ role: "user", content: prompt });
+    const systemPrompt = await this.getSystemPrompt();
+    const messages = buildChatMessages(systemPrompt, this.history);
+    const sampling = this.getSampling();
 
     if (this.citationsEnabled) {
-      const object = await super.generateTextWithCitations({
-        prompt,
-        abortSignal,
-      });
-
+      const raw = await completeChatText(provider, messages, abortSignal, sampling);
+      const parsed = this.parseModelResponseText(raw);
+      this.history.push({ role: "assistant", content: JSON.stringify(parsed) });
       if (browseBotFindbar?.findbar) {
         browseBotFindbar.findbar.history = this.getHistory();
       }
-      return object;
+      return parsed;
     }
 
     if (this.streamEnabled) {
       const self = this;
-      const streamResult = await super.streamText({ prompt, abortSignal });
-      (async () => {
-        await streamResult.text;
+      const stream = streamChatText(provider, messages, abortSignal, sampling);
+      let accumulated = "";
+
+      const textStream = (async function* () {
+        for await (const chunk of stream) {
+          accumulated += chunk;
+          yield chunk;
+        }
+        self.history.push({ role: "assistant", content: accumulated });
         if (browseBotFindbar?.findbar) {
           browseBotFindbar.findbar.history = self.getHistory();
         }
       })();
-      return streamResult;
+
+      return {
+        textStream,
+        get text() {
+          return (async () => {
+            let t = "";
+            for await (const c of textStream) t += c;
+            return t;
+          })();
+        },
+      };
     }
 
-    const result = await super.generateText({ prompt, abortSignal });
+    const text = await completeChatText(provider, messages, abortSignal, sampling);
+    this.history.push({ role: "assistant", content: text });
     if (browseBotFindbar?.findbar) {
       browseBotFindbar.findbar.history = this.getHistory();
     }
-    return result;
-  }
-
-  clearData() {
-    super.clearData();
-    this.systemInstruction = "";
+    return { text };
   }
 }
 
