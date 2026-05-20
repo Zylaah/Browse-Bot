@@ -1687,9 +1687,8 @@ const browseBotFindbar = {
       const matches = this.findbar.querySelector(".found-matches");
       const status = this.findbar.querySelector(".findbar-find-status");
       const wrapper = this.findbar.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
-      if (wrapper) {
-        if (matches && matches.parentElement !== wrapper) wrapper.appendChild(matches);
-        if (status && status.parentElement !== wrapper) wrapper.appendChild(status);
+      if (wrapper && matches && matches.parentElement !== wrapper) {
+        wrapper.appendChild(matches);
       }
 
       if (matches) {
@@ -1998,7 +1997,7 @@ const browseBotFindbar = {
 
     const status = findbarEl.querySelector(".findbar-find-status");
     if (status) {
-      status.hidden = !hasSearch || hasMatches;
+      status.hidden = true;
     }
 
     const foundMatchesElement = findbarEl._foundMatches;

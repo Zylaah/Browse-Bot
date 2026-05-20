@@ -233,6 +233,12 @@ browser {
           margin-right: 15px;
         }
 
+        hbox[anonid="findbar-textbox-wrapper"] {
+          position: relative !important;
+          z-index: 2 !important;
+          pointer-events: auto !important;
+        }
+
         .findbar-textbox {
           background: none !important;
           padding: 0 !important;
@@ -241,6 +247,9 @@ browser {
           box-shadow: none !important;
           width: 100% !important;
           border: none !important;
+          pointer-events: auto !important;
+          position: relative !important;
+          z-index: 2 !important;
 
           &:focus {
             outline: none !important;
