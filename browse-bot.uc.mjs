@@ -1561,10 +1561,6 @@ const browseBotFindbar = {
   _dndListener: null,
   contextMenuItem: null,
   _matchesObserver: null,
-  _isDragging: false,
-  _startDrag: null,
-  _stopDrag: null,
-  _handleDrag: null,
   _initialContainerCoor: { x: null, y: null },
   _initialMouseCoor: { x: null, y: null },
   _startWidth: null,
@@ -2126,50 +2122,9 @@ const browseBotFindbar = {
 
     const container = parseElement(`
         <div class="browse-bot-chat">
-          <div class="findbar-drag-handle"></div>
-          <div class="browse-bot-chat-toolbar"></div>
           <div class="ai-chat-messages" id="chat-messages"></div>
           ${chatInputGroup}
         </div>`);
-
-    const chatToolbar = container.querySelector(".browse-bot-chat-toolbar");
-
-    const clearBtn = parseElement(
-      `
-        <toolbarbutton 
-          id="clear-chat" 
-          class="clear-chat-btn" 
-          image="chrome://global/skin/icons/delete.svg" 
-          tooltiptext="Clear Chat"
-        />`,
-      "xul"
-    );
-
-    const settingsBtn = parseElement(
-      `
-        <toolbarbutton 
-          id="open-settings-btn" 
-          class="settings-btn" 
-          image="chrome://global/skin/icons/settings.svg" 
-          tooltiptext="Settings"
-        />`,
-      "xul"
-    );
-
-    const collapseBtn = parseElement(
-      `
-        <toolbarbutton 
-          id="findbar-collapse-btn" 
-          class="findbar-collapse-btn" 
-          image="chrome://browser/skin/zen-icons/unpin.svg" 
-          tooltiptext="Collapse"
-        />`,
-      "xul"
-    );
-
-    chatToolbar.appendChild(clearBtn);
-    chatToolbar.appendChild(settingsBtn);
-    chatToolbar.appendChild(collapseBtn);
 
     const chatMessages = container.querySelector("#chat-messages");
     const promptInput = container.querySelector("#ai-prompt");
@@ -2192,19 +2147,6 @@ const browseBotFindbar = {
         e.preventDefault();
         handleSend();
       }
-    });
-
-    clearBtn.addEventListener("click", () => {
-      this.clear();
-      this.expanded = false;
-    });
-
-    settingsBtn.addEventListener("click", () => {
-      SettingsModal.show();
-    });
-
-    collapseBtn.addEventListener("click", () => {
-      this.expanded = false;
     });
 
     chatMessages.addEventListener("click", async (e) => {
@@ -2312,7 +2254,7 @@ const browseBotFindbar = {
       this.findbar.insertBefore(this.apiKeyContainer, this.findbar.firstChild);
     } else {
       this.chatContainer = this.createChatInterface();
-      if (PREFS.dndEnabled) this.enableDND();
+      if (PREFS.dndEnabled) this.enableResize();
 
       // Re-render history using the new message format
       const history = browseBotFindbarLLM.getHistory();
@@ -2570,120 +2512,6 @@ const browseBotFindbar = {
     this.stopResize();
   },
 
-  startDrag(e) {
-    if (!this.chatContainer || e.button !== 0) return;
-    this._isDragging = true;
-    this._initialMouseCoor = { x: e.clientX, y: e.clientY };
-    const rect = this.findbar.getBoundingClientRect();
-    this._initialContainerCoor = { x: rect.left, y: rect.top };
-    this._handleDrag = this.doDrag.bind(this);
-    this._stopDrag = this.stopDrag.bind(this);
-    document.addEventListener("mousemove", this._handleDrag);
-    document.addEventListener("mouseup", this._stopDrag);
-  },
-
-  doDrag(e) {
-    if (!this._isDragging) return;
-    const minCoors = { x: 15, y: 35 };
-    const rect = this.findbar.getBoundingClientRect();
-    const maxCoors = {
-      x: window.innerWidth - rect.width - 33,
-      y: window.innerHeight - rect.height - 33,
-    };
-    const newCoors = {
-      x: this._initialContainerCoor.x + (e.clientX - this._initialMouseCoor.x),
-      y: this._initialContainerCoor.y + (e.clientY - this._initialMouseCoor.y),
-    };
-
-    newCoors.x -= getSidebarWidth();
-    newCoors.x = Math.max(minCoors.x, Math.min(newCoors.x, maxCoors.x));
-    newCoors.y = Math.max(minCoors.y, Math.min(newCoors.y, maxCoors.y));
-    if (PREFS.pseudoBg) this._updateFindbarDimensions();
-
-    this.findbar.style.setProperty("left", `${newCoors.x}px`, "important");
-    this.findbar.style.setProperty("top", `${newCoors.y}px`, "important");
-    this.findbar.style.setProperty("right", "unset", "important");
-    this.findbar.style.setProperty("bottom", "unset", "important");
-  },
-
-  stopDrag() {
-    this._isDragging = false;
-    if (!PREFS.pseudoBg) {
-      this.findbar.style.setProperty("transition", "all 0.3s ease", "important");
-      setTimeout(() => this.findbar.style.removeProperty("transition"), 400);
-      setTimeout(() => this._updateFindbarDimensions(), 401); // update dimensions after transition
-    }
-    this.snapToClosestCorner();
-    this._initialMouseCoor = { x: null, y: null };
-    this._initialContainerCoor = { x: null, y: null };
-    document.removeEventListener("mouseup", this._stopDrag);
-    document.removeEventListener("mousemove", this._handleDrag);
-    this._handleDrag = null;
-    this._stopDrag = null;
-    setTimeout(() => this._updateFindbarDimensions(), 0);
-  },
-
-  snapToClosestCorner() {
-    if (!this.findbar || !PREFS.dndEnabled) return;
-
-    const rect = this.findbar.getBoundingClientRect();
-    const currentX = rect.left;
-    const currentY = rect.top;
-    const findbarWidth = rect.width;
-    const findbarHeight = rect.height;
-
-    const snapPoints = {
-      "top-left": { x: 0, y: 0 },
-      "top-right": { x: window.innerWidth - findbarWidth, y: 0 },
-      "bottom-left": { x: 0, y: window.innerHeight - findbarHeight },
-      "bottom-right": {
-        x: window.innerWidth - findbarWidth,
-        y: window.innerHeight - findbarHeight,
-      },
-    };
-
-    let closestPointName = PREFS.position;
-    let minDistance = Infinity;
-
-    for (const name in snapPoints) {
-      const p = snapPoints[name];
-      const distance = Math.sqrt(Math.pow(currentX - p.x, 2) + Math.pow(currentY - p.y, 2));
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestPointName = name;
-      }
-    }
-
-    // Update preference if position changed
-    if (closestPointName !== PREFS.position) {
-      PREFS.position = closestPointName;
-    }
-    this.findbar.style.removeProperty("left");
-    this.findbar.style.removeProperty("top");
-    this.findbar.style.removeProperty("bottom");
-    this.findbar.style.removeProperty("right");
-    // this.applyFindbarPosition(closestPointName);
-  },
-  enableDND() {
-    if (!this.chatContainer) return;
-    const handle = this.chatContainer.querySelector(".findbar-drag-handle");
-    if (!handle) return;
-    this._startDrag = this.startDrag.bind(this);
-    handle.addEventListener("mousedown", this._startDrag);
-  },
-  disableDND() {
-    this._isDragging = false;
-    if (!this.chatContainer) return;
-    const handle = this.chatContainer.querySelector(".findbar-drag-handle");
-    if (!handle) return;
-    handle.removeEventListener("mousedown", this._startDrag);
-    document.removeEventListener("mouseup", this._stopDrag);
-    document.removeEventListener("mousemove", this._handleDrag);
-    this._startDrag = null;
-    this._stopDrag = null;
-  },
-
   addKeymaps: function (e) {
     if (e.key?.toLowerCase() === "escape") {
       if (SettingsModal._modalElement && SettingsModal._modalElement.parentNode) {
@@ -2736,10 +2564,8 @@ const browseBotFindbar = {
     });
     this._dndListener = addPrefListener(PREFS.DND_ENABLED, (pref) => {
       if (pref.value) {
-        this.enableDND();
         this.enableResize();
       } else {
-        this.disableDND();
         this.disableResize();
       }
     });
@@ -2760,7 +2586,7 @@ const browseBotFindbar = {
     removePrefListener(this._minimalListener);
     removePrefListener(this._persistListener);
     removePrefListener(this._dndListener);
-    this.disableDND();
+    this.disableResize();
 
     this._handleInputKeyPress = null;
     this._updateFindbar = null;
