@@ -1644,6 +1644,7 @@ const browseBotFindbar = {
     this.addExpandButton();
     this.removeAIInterface();
     this.showAIInterface();
+    this._layoutMinimalFindbarRow();
   },
 
   updateFindbar() {
@@ -1686,10 +1687,6 @@ const browseBotFindbar = {
 
       const matches = this.findbar.querySelector(".found-matches");
       const status = this.findbar.querySelector(".findbar-find-status");
-      const wrapper = this.findbar.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
-      if (wrapper && matches && matches.parentElement !== wrapper) {
-        wrapper.appendChild(matches);
-      }
 
       if (matches) {
         matches.hidden = true;
@@ -1703,7 +1700,30 @@ const browseBotFindbar = {
       this.findbar._findField.addEventListener("keypress", this._handleInputKeyPress);
       this.findbar._findField.removeEventListener("input", this._handleFindFieldInput);
       this.findbar._findField.addEventListener("input", this._handleFindFieldInput);
+
+      this._layoutMinimalFindbarRow();
     });
+  },
+
+  /**
+   * Minimal findbar row: [textbox] [n/m matches] [Ask]
+   */
+  _layoutMinimalFindbarRow() {
+    if (!this.minimal || !this.findbar) return;
+
+    const container = this.findbar.querySelector(".findbar-container");
+    const row = container?.firstElementChild;
+    const wrapper = row?.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
+    const matches = this.findbar.querySelector(".found-matches");
+    const askBtn = this.askButton || container?.querySelector("#findbar-ask");
+
+    if (!row || !wrapper || !matches) return;
+
+    if (askBtn) {
+      askBtn.insertAdjacentElement("beforebegin", matches);
+    } else {
+      wrapper.insertAdjacentElement("afterend", matches);
+    }
   },
 
   /**
@@ -2349,6 +2369,7 @@ const browseBotFindbar = {
           container.appendChild(askBtn);
         }
         this.askButton = askBtn;
+        this._layoutMinimalFindbarRow();
       }
     } else {
       const button_id = "findbar-expand";
