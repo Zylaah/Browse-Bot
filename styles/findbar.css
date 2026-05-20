@@ -88,8 +88,8 @@ browser {
     position: fixed;
     top: 35px;
     right: 15px;
-    width: 500px;
-    max-width: 800px !important;
+    width: 420px;
+    max-width: 560px !important;
     min-width: 300px !important;
     height: unset !important;
     border-radius: var(--acrylic-radius) !important;
@@ -491,6 +491,12 @@ browser {
     }
 
     .browse-bot-chat {
+      .markdown-body {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-width: 100%;
+      }
+
       .ai-chat-messages {
         max-height: 320px;
         padding: 10px 2px 0 2px !important;

@@ -75,6 +75,10 @@ function removePrefListener(listener) {
   }
 }
 
+const FINDBAR_DEFAULT_WIDTH = 420;
+const FINDBAR_MIN_WIDTH = 300;
+const FINDBAR_MAX_WIDTH = 560;
+
 let PREFS$1 = class PREFS {
   static MOD_NAME = "BasePrefs";
   static DEBUG_MODE = "";
@@ -206,7 +210,7 @@ class BrowseBotPREFS extends PREFS$1 {
     [BrowseBotPREFS.DND_ENABLED]: true,
     [BrowseBotPREFS.POSITION]: "top-right",
     [BrowseBotPREFS.REMEMBER_DIMENSIONS]: true,
-    [BrowseBotPREFS.WIDTH]: 500,
+    [BrowseBotPREFS.WIDTH]: FINDBAR_DEFAULT_WIDTH,
     [BrowseBotPREFS.BACKGROUND_STYLE]: "solid",
     [BrowseBotPREFS.SHORTCUT_FINDBAR]: "ctrl+shift+f",
     [BrowseBotPREFS.CUSTOM_SYSTEM_PROMPT]: "",
@@ -221,6 +225,9 @@ class BrowseBotPREFS extends PREFS$1 {
   setInitialPrefs() {
     this.migratePrefs();
     super.setInitialPrefs();
+    if (Services.prefs.prefHasUserValue(this.WIDTH)) {
+      this.setPref(this.WIDTH, clampFindbarWidth(this.getPref(this.WIDTH)));
+    }
   }
 
   static migratePrefs() {
@@ -1503,20 +1510,94 @@ const SettingsModal = {
   },
 };
 
+/**
+ * Clamps stored findbar width to a sensible range.
+ * @param {number} width
+ * @returns {number}
+ */
+function clampFindbarWidth(width) {
+  const n = Number(width);
+  if (!Number.isFinite(n)) return FINDBAR_DEFAULT_WIDTH;
+  return Math.min(Math.max(n, FINDBAR_MIN_WIDTH), FINDBAR_MAX_WIDTH);
+}
+
+/**
+ * Escapes text for safe HTML insertion.
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Lightweight markdown → HTML when Sine's parseMD is unavailable.
+ * @param {string} markdown
+ * @returns {string}
+ */
+function markdownToHtmlFallback(markdown) {
+  const fences = [];
+  let text = String(markdown).replace(/```([\s\S]*?)```/g, (_, code) => {
+    const token = `@@FENCE${fences.length}@@`;
+    fences.push(`<pre><code>${escapeHtml(code.trim())}</code></pre>`);
+    return token;
+  });
+
+  text = escapeHtml(text);
+  fences.forEach((html, i) => {
+    text = text.replace(`@@FENCE${i}@@`, html);
+  });
+
+  text = text
+    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
+    .replace(/(<li>[\s\S]*?<\/li>)(\s*<li>)/g, "$1$2")
+    .replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, "<ul>$1</ul>")
+    .replace(/\n\n+/g, "</p><p>")
+    .replace(/\n/g, "<br>");
+
+  return `<p>${text}</p>`;
+}
+
+/**
+ * Renders markdown into a .markdown-body element.
+ * @param {string} markdown
+ * @param {boolean} [convertHTML=true] - Return element if true, else innerHTML string.
+ * @returns {HTMLElement|string}
+ */
 function parseMD(markdown, convertHTML = true) {
-  let htmlContent = parseElement(`<div class="markdown-body"></div>`);
+  const htmlContent = parseElement(`<div class="markdown-body"></div>`);
+  let parsed = false;
+
   try {
-    const parse = ChromeUtils.importESModule("chrome://userscripts/content/engine/utils/dom.mjs")
-      .default.parseMD;
-    const browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
-    parse(htmlContent, markdown, "", browserWindow || window);
-  } catch {
-    PREFS.debugLog("Parsing markdown failed");
-    htmlContent.innerHTML = markdown;
+    const domUtils = ChromeUtils.importESModule(
+      "chrome://userscripts/content/engine/utils/dom.mjs"
+    ).default;
+    if (typeof domUtils.parseMD === "function") {
+      const browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
+      domUtils.parseMD(htmlContent, markdown, "", browserWindow || window);
+      parsed = true;
+    }
+  } catch (e) {
+    PREFS.debugLog("Sine parseMD unavailable, using built-in fallback:", e);
+  }
+
+  if (!parsed) {
+    htmlContent.innerHTML = markdownToHtmlFallback(markdown);
   }
 
   if (convertHTML) return htmlContent;
-  else return htmlContent.innerHTML;
+  return htmlContent.innerHTML;
 }
 
 PREFS.setInitialPrefs();
@@ -1584,18 +1665,17 @@ const browseBotFindbar = {
   _saveFindbarDimensions() {
     if (!this.findbar || !PREFS.rememberDimensions) return;
     const rect = this.findbar.getBoundingClientRect();
-    PREFS.width = rect.width;
+    PREFS.width = clampFindbarWidth(rect.width);
   },
 
   /**
    * Apply findbar dimensions in saved prefs
    */
   _applyFindbarDimensions() {
-    if (!this.findbar || !PREFS.rememberDimensions) return;
-    const width = PREFS.width;
-    if (width) {
-      this.findbar.style.width = `${width}px`;
-    }
+    if (!this.findbar) return;
+    const width = clampFindbarWidth(PREFS.width);
+    this.findbar.style.width = `${width}px`;
+    this.findbar.style.maxWidth = `${FINDBAR_MAX_WIDTH}px`;
   },
   _isStreaming: false,
   _abortController: null,
@@ -2530,8 +2610,8 @@ const browseBotFindbar = {
 
   doResize(e) {
     if (!this._isResizing || !this.findbar) return;
-    const minWidth = 300;
-    const maxWidth = 800;
+    const minWidth = FINDBAR_MIN_WIDTH;
+    const maxWidth = FINDBAR_MAX_WIDTH;
     const directionFactor = PREFS.position.includes("right") ? -1 : 1;
     let newWidth = this.startWidth + (e.clientX - this._initialMouseCoor.x) * directionFactor;
     newWidth = Math.min(Math.max(newWidth, minWidth), maxWidth);
