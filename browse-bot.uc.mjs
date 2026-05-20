@@ -1706,18 +1706,23 @@ const browseBotFindbar = {
   },
 
   /**
-   * Minimal findbar row: [textbox] [n/m matches] [Ask]
+   * Minimal findbar row: [textbox wrapper] [n/m matches] [Ask]
+   * Native DOM: wrapper, checkboxes, .found-matches are siblings under .findbar-container.
    */
   _layoutMinimalFindbarRow() {
     if (!this.minimal || !this.findbar) return;
 
     const container = this.findbar.querySelector(".findbar-container");
-    const row = container?.firstElementChild;
-    const wrapper = row?.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
-    const matches = this.findbar.querySelector(".found-matches");
+    const wrapper = container?.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
+    const matches =
+      this.findbar._foundMatches || this.findbar.querySelector(".found-matches");
     const askBtn = this.askButton || container?.querySelector("#findbar-ask");
 
-    if (!row || !wrapper || !matches) return;
+    if (!container || !wrapper || !matches) return;
+
+    if (askBtn?.parentElement === wrapper) {
+      wrapper.insertAdjacentElement("afterend", askBtn);
+    }
 
     if (askBtn) {
       askBtn.insertAdjacentElement("beforebegin", matches);
@@ -2031,6 +2036,10 @@ const browseBotFindbar = {
 
     foundMatchesElement.hidden = false;
     foundMatchesElement.setAttribute("value", `${result.current}/${result.total}`);
+
+    if (PREFS.minimal) {
+      this._layoutMinimalFindbarRow();
+    }
   },
 
   _toggleStreamingControls(isStreaming) {
@@ -2359,12 +2368,9 @@ const browseBotFindbar = {
           this.findbar._findField.value = "";
           this.focusInput();
         });
-        const row = container.firstElementChild;
-        const wrapper = row?.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
+        const wrapper = container.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
         if (wrapper) {
           wrapper.insertAdjacentElement("afterend", askBtn);
-        } else if (row) {
-          row.appendChild(askBtn);
         } else {
           container.appendChild(askBtn);
         }
