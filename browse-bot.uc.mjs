@@ -84,9 +84,8 @@ function removePrefListener(listener) {
   }
 }
 
-const FINDBAR_DEFAULT_WIDTH = 420;
-const FINDBAR_MIN_WIDTH = 300;
-const FINDBAR_MAX_WIDTH = 560;
+/** Fixed findbar width (not user-resizable). */
+const FINDBAR_WIDTH = 300;
 
 let PREFS$1 = class PREFS {
   static MOD_NAME = "BasePrefs";
@@ -216,10 +215,10 @@ class BrowseBotPREFS extends PREFS$1 {
     [BrowseBotPREFS.CEREBRAS_MODEL]: "llama3.1-8b",
     [BrowseBotPREFS.OLLAMA_MODEL]: "llama2",
     [BrowseBotPREFS.OLLAMA_BASE_URL]: "http://localhost:11434/api",
-    [BrowseBotPREFS.DND_ENABLED]: true,
+    [BrowseBotPREFS.DND_ENABLED]: false,
     [BrowseBotPREFS.POSITION]: "top-right",
-    [BrowseBotPREFS.REMEMBER_DIMENSIONS]: true,
-    [BrowseBotPREFS.WIDTH]: FINDBAR_DEFAULT_WIDTH,
+    [BrowseBotPREFS.REMEMBER_DIMENSIONS]: false,
+    [BrowseBotPREFS.WIDTH]: FINDBAR_WIDTH,
     [BrowseBotPREFS.BACKGROUND_STYLE]: "solid",
     [BrowseBotPREFS.SHORTCUT_FINDBAR]: "ctrl+shift+f",
     [BrowseBotPREFS.CUSTOM_SYSTEM_PROMPT]: "",
@@ -234,9 +233,7 @@ class BrowseBotPREFS extends PREFS$1 {
   setInitialPrefs() {
     this.migratePrefs();
     super.setInitialPrefs();
-    if (Services.prefs.prefHasUserValue(this.WIDTH)) {
-      this.setPref(this.WIDTH, clampFindbarWidth(this.getPref(this.WIDTH)));
-    }
+    this.setPref(this.WIDTH, FINDBAR_WIDTH);
   }
 
   static migratePrefs() {
@@ -1195,8 +1192,6 @@ const SettingsModal = {
       { label: "Enable AI Findbar", pref: PREFS.ENABLED },
       { label: "Minimal Mode (similar to arc)", pref: PREFS.MINIMAL },
       { label: "Persist Chat (don't persist when browser closes)", pref: PREFS.PERSIST },
-      { label: "Enable Drag and Drop", pref: PREFS.DND_ENABLED },
-      { label: "Remember Dimensions", pref: PREFS.REMEMBER_DIMENSIONS },
     ];
     const positionOptions = {
       "top-left": "Top Left",
@@ -1520,17 +1515,6 @@ const SettingsModal = {
 };
 
 /**
- * Clamps stored findbar width to a sensible range.
- * @param {number} width
- * @returns {number}
- */
-function clampFindbarWidth(width) {
-  const n = Number(width);
-  if (!Number.isFinite(n)) return FINDBAR_DEFAULT_WIDTH;
-  return Math.min(Math.max(n, FINDBAR_MIN_WIDTH), FINDBAR_MAX_WIDTH);
-}
-
-/**
  * Renders markdown into a target element (marked + DOMPurify, same as urlbar-ai).
  * @param {string} markdown
  * @param {HTMLElement} target
@@ -1540,14 +1524,8 @@ function renderMarkdown(markdown, target) {
 }
 
 PREFS.setInitialPrefs();
-document.documentElement.style.setProperty(
-  "--browse-bot-findbar-width",
-  `${clampFindbarWidth(PREFS.width)}px`
-);
-document.documentElement.style.setProperty(
-  "--browse-bot-findbar-max-width",
-  `${clampFindbarWidth(PREFS.width)}px`
-);
+document.documentElement.style.setProperty("--browse-bot-findbar-width", `${FINDBAR_WIDTH}px`);
+document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${FINDBAR_WIDTH}px`);
 
 const browseBotFindbar = {
   findbar: null,
@@ -1567,18 +1545,8 @@ const browseBotFindbar = {
   _contextMenuEnabledListener: null,
   _persistListener: null,
   _minimalListener: null,
-  _dndListener: null,
   contextMenuItem: null,
   _matchesObserver: null,
-  _initialContainerCoor: { x: null, y: null },
-  _initialMouseCoor: { x: null, y: null },
-  _startWidth: null,
-  _resizeHandle: null,
-  _isResizing: false,
-  _startResize: null,
-  _stopResize: null,
-  _handleResize: null,
-  _handleResizeEnd: null,
   _highlightTimeout: null,
   _originalOnMatchesCountResult: null,
   _currentAIMessageDiv: null,
@@ -1604,38 +1572,16 @@ const browseBotFindbar = {
   },
 
   /**
-   * Save findbar dimensions in prefs
-   */
-  _saveFindbarDimensions() {
-    if (!this.findbar || !PREFS.rememberDimensions) return;
-    const inlineWidth = parseInt(this.findbar.style.width, 10);
-    PREFS.width = clampFindbarWidth(
-      Number.isFinite(inlineWidth) ? inlineWidth : PREFS.width
-    );
-  },
-
-  /**
-   * Apply findbar dimensions in saved prefs
+   * Apply fixed findbar width.
    */
   _applyFindbarDimensions() {
-    const width = clampFindbarWidth(PREFS.width);
-    document.documentElement.style.setProperty("--browse-bot-findbar-width", `${width}px`);
-    document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${width}px`);
+    document.documentElement.style.setProperty("--browse-bot-findbar-width", `${FINDBAR_WIDTH}px`);
+    document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${FINDBAR_WIDTH}px`);
 
     if (!this.findbar) return;
-    this.findbar.style.setProperty("width", `${width}px`, "important");
-    this.findbar.style.setProperty("max-width", `${width}px`, "important");
-    this.findbar.style.setProperty("min-width", `${FINDBAR_MIN_WIDTH}px`, "important");
-  },
-
-  _setFindbarWidthPx(widthPx) {
-    const width = clampFindbarWidth(widthPx);
-    document.documentElement.style.setProperty("--browse-bot-findbar-width", `${width}px`);
-    document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${width}px`);
-    if (!this.findbar) return;
-    this.findbar.style.setProperty("width", `${width}px`, "important");
-    this.findbar.style.setProperty("max-width", `${width}px`, "important");
-    return width;
+    this.findbar.style.setProperty("width", `${FINDBAR_WIDTH}px`, "important");
+    this.findbar.style.setProperty("max-width", `${FINDBAR_WIDTH}px`, "important");
+    this.findbar.style.setProperty("min-width", `${FINDBAR_WIDTH}px`, "important");
   },
   _isStreaming: false,
   _abortController: null,
@@ -1704,7 +1650,6 @@ const browseBotFindbar = {
     SettingsModal.hide();
     this.removeExpandButton();
     this.removeAIInterface();
-    this.disableResize();
     if (!PREFS.persistChat) {
       this.hide();
       this.expanded = false;
@@ -1737,10 +1682,7 @@ const browseBotFindbar = {
         this.expanded = false;
       }
       this.updateFindbarStatus();
-      setTimeout(() => {
-        if (PREFS.dndEnabled) this.enableResize();
-        this._updateFindbarDimensions();
-      }, 0);
+      setTimeout(() => this._updateFindbarDimensions(), 0);
 
       const matches = this.findbar.querySelector(".found-matches");
       const status = this.findbar.querySelector(".findbar-find-status");
@@ -2282,8 +2224,6 @@ const browseBotFindbar = {
       this.findbar.insertBefore(this.apiKeyContainer, this.findbar.firstChild);
     } else {
       this.chatContainer = this.createChatInterface();
-      if (PREFS.dndEnabled) this.enableResize();
-
       // Re-render history using the new message format
       const history = browseBotFindbarLLM.getHistory();
       for (const message of history) {
@@ -2292,6 +2232,7 @@ const browseBotFindbar = {
 
       this.findbar.insertBefore(this.chatContainer, this.findbar.firstChild);
     }
+    this._applyFindbarDimensions();
     setTimeout(() => this._updateFindbarDimensions(), 10);
   },
 
@@ -2493,53 +2434,6 @@ const browseBotFindbar = {
     this.contextMenuItem.label = hasSelection ? "Ask AI" : "Summarize with AI";
   },
 
-  enableResize() {
-    if (!this.findbar || this._resizeHandle) return;
-    const resizeHandle = parseElement(`<div class="findbar-resize-handle"></div>`);
-    this.findbar.appendChild(resizeHandle);
-    this._resizeHandle = resizeHandle;
-    this._startResize = this.startResize.bind(this);
-    this._resizeHandle.addEventListener("mousedown", this._startResize);
-  },
-
-  startResize(e) {
-    if (e.button !== 0 || !this.findbar) return;
-    this._isResizing = true;
-    this._initialMouseCoor = { x: e.clientX, y: e.clientY };
-    const rect = this.findbar.getBoundingClientRect();
-    this.startWidth = rect.width;
-    this._handleResize = this.doResize.bind(this);
-    this._stopResize = this.stopResize.bind(this);
-    document.addEventListener("mousemove", this._handleResize);
-    document.addEventListener("mouseup", this._stopResize);
-  },
-
-  doResize(e) {
-    if (!this._isResizing || !this.findbar) return;
-    const minWidth = FINDBAR_MIN_WIDTH;
-    const maxWidth = FINDBAR_MAX_WIDTH;
-    const directionFactor = PREFS.position.includes("right") ? -1 : 1;
-    let newWidth = this.startWidth + (e.clientX - this._initialMouseCoor.x) * directionFactor;
-    newWidth = Math.min(Math.max(newWidth, minWidth), maxWidth);
-    this._setFindbarWidthPx(newWidth);
-    this._updateFindbarDimensions();
-  },
-
-  stopResize() {
-    this._isResizing = false;
-    document.removeEventListener("mousemove", this._handleResize);
-    document.removeEventListener("mouseup", this._stopResize);
-    this._handleResize = null;
-    this._stopResize = null;
-    this._updateFindbarDimensions();
-    this._saveFindbarDimensions();
-  },
-  disableResize() {
-    this._resizeHandle?.remove();
-    this._resizeHandle = null;
-    this.stopResize();
-  },
-
   addKeymaps: function (e) {
     if (e.key?.toLowerCase() === "escape") {
       if (SettingsModal._modalElement && SettingsModal._modalElement.parentNode) {
@@ -2590,16 +2484,6 @@ const browseBotFindbar = {
       if (pref.value) this.findbar.history = browseBotFindbarLLM.history;
       else this.findbar.history = null;
     });
-    this._dndListener = addPrefListener(PREFS.DND_ENABLED, (pref) => {
-      if (pref.value) {
-        this.enableResize();
-      } else {
-        this.disableResize();
-      }
-    });
-    this._widthListener = addPrefListener(PREFS.WIDTH, () => {
-      this._applyFindbarDimensions();
-    });
   },
 
   removeListeners() {
@@ -2616,18 +2500,12 @@ const browseBotFindbar = {
     removePrefListener(this._contextMenuEnabledListener);
     removePrefListener(this._minimalListener);
     removePrefListener(this._persistListener);
-    removePrefListener(this._dndListener);
-    removePrefListener(this._widthListener);
-    this.disableResize();
-
     this._handleInputKeyPress = null;
     this._updateFindbar = null;
     this._addKeymaps = null;
     this._citationsListener = null;
     this._contextMenuEnabledListener = null;
     this._minimalListener = null;
-    this._dndListener = null;
-    this._widthListener = null;
     this._handleFindbarOpenEvent = null;
     this._handleFindbarCloseEvent = null;
   },
