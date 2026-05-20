@@ -2000,14 +2000,19 @@ const browseBotFindbar = {
     const sendBtn = this.chatContainer.querySelector("#send-prompt");
     const stopBtn = this.chatContainer.querySelector("#stop-generation");
     const promptInput = this.chatContainer.querySelector("#ai-prompt");
+    const actions = this.chatContainer.querySelector(".ai-chat-input-actions");
+
+    if (!sendBtn || !stopBtn) return;
 
     if (isStreaming) {
-      sendBtn.style.display = "none";
-      stopBtn.style.display = "flex";
+      sendBtn.hidden = true;
+      stopBtn.hidden = false;
+      actions?.setAttribute("data-streaming", "true");
       promptInput.disabled = true;
     } else {
-      sendBtn.style.display = "flex";
-      stopBtn.style.display = "none";
+      sendBtn.hidden = false;
+      stopBtn.hidden = true;
+      actions?.removeAttribute("data-streaming");
       promptInput.disabled = false;
       this.focusPrompt();
     }
@@ -2110,7 +2115,7 @@ const browseBotFindbar = {
                   <path fill="currentColor" d="M3.4 20.4l17.45-7.48c.81-.35.81-1.49 0-1.84L3.4 3.6c-.66-.29-1.39.2-1.39.91L2 9.12c0 .5.37.93.87.99L17 12L2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z"/>
                 </svg>
               </button>
-              <button id="stop-generation" class="stop-btn" type="button" title="Stop" aria-label="Stop generation" style="display: none;">
+              <button id="stop-generation" class="stop-btn" type="button" title="Stop" aria-label="Stop generation" hidden>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
                   <path fill="currentColor" d="M6 6h12v12H6z"/>
                 </svg>
@@ -2121,14 +2126,13 @@ const browseBotFindbar = {
 
     const container = parseElement(`
         <div class="browse-bot-chat">
-          <div class="ai-chat-header">
-            <div class="findbar-drag-handle"></div>
-          </div>
+          <div class="findbar-drag-handle"></div>
+          <div class="browse-bot-chat-toolbar"></div>
           <div class="ai-chat-messages" id="chat-messages"></div>
           ${chatInputGroup}
         </div>`);
 
-    const chatHeader = container.querySelector(".ai-chat-header");
+    const chatToolbar = container.querySelector(".browse-bot-chat-toolbar");
 
     const clearBtn = parseElement(
       `
@@ -2163,9 +2167,9 @@ const browseBotFindbar = {
       "xul"
     );
 
-    chatHeader.appendChild(clearBtn);
-    chatHeader.appendChild(settingsBtn);
-    chatHeader.appendChild(collapseBtn);
+    chatToolbar.appendChild(clearBtn);
+    chatToolbar.appendChild(settingsBtn);
+    chatToolbar.appendChild(collapseBtn);
 
     const chatMessages = container.querySelector("#chat-messages");
     const promptInput = container.querySelector("#ai-prompt");

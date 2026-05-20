@@ -78,7 +78,6 @@ browser {
 
   findbar {
     padding-inline-start: 0px !important;
-    padding-inline-end: 5px !important;
     padding-top: 1px !important;
     padding-bottom: 2px !important;
     display: flex !important;
@@ -213,16 +212,8 @@ browser {
           top: 0px !important;
         }
 
-        .ai-chat-header {
-          margin-right: 34px !important;
-          position: relative !important;
-
-          .findbar-collapse-btn {
-            position: absolute !important;
-            right: 0 !important;
-            top: 50% !important;
-            transform: translateY(-50%);
-          }
+        .browse-bot-chat-toolbar {
+          right: 34px !important;
         }
       }
 
@@ -351,32 +342,31 @@ browser {
       gap: 14px;
     }
 
-    .ai-chat-header {
-      height: 28px;
-      min-height: 28px;
-      display: flex;
-      flex-direction: row;
+    .browse-bot-chat {
+      position: relative !important;
+    }
+
+    .browse-bot-chat .findbar-drag-handle {
+      position: absolute !important;
+      inset: 0 !important;
+      z-index: 1 !important;
+      cursor: move !important;
+
+      @media not -moz-pref("extension.browse-bot.findbar-ai.dnd-enabled") {
+        display: none !important;
+      }
+    }
+
+    .browse-bot-chat-toolbar {
+      position: absolute !important;
+      top: 6px !important;
+      right: 36px !important;
+      z-index: 3 !important;
+      display: flex !important;
+      flex-direction: row !important;
       align-items: center !important;
-      gap: 4px !important;
-      padding: 4px 8px 0 8px !important;
-      margin-bottom: 2px !important;
-      border-bottom: 1px solid var(--browse-bot-divider) !important;
-
-      * {
-        z-index: 2 !important;
-      }
-
-      .findbar-drag-handle {
-        position: absolute !important;
-        width: 100% !important;
-        height: 28px !important;
-        cursor: move !important;
-        z-index: 1 !important;
-
-        @media not -moz-pref("extension.browse-bot.findbar-ai.dnd-enabled") {
-          display: none !important;
-        }
-      }
+      gap: 2px !important;
+      pointer-events: auto !important;
     }
 
     .browse-bot-setup {
@@ -482,20 +472,21 @@ browser {
     .browse-bot-chat {
       gap: 0 !important;
 
-      &:has(.ai-chat-messages:empty) .ai-chat-header {
-        border-bottom: none !important;
-        margin-bottom: 0 !important;
-      }
-
       .markdown-body {
         overflow-wrap: anywhere;
         word-break: break-word;
         max-width: 100%;
       }
 
+      .ai-chat-messages,
+      .ai-chat-input-group {
+        position: relative;
+        z-index: 2;
+      }
+
       .ai-chat-messages {
         max-height: 320px;
-        padding: 12px 12px 8px 12px !important;
+        padding: 36px 12px 8px 12px !important;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
@@ -507,7 +498,7 @@ browser {
           display: none !important;
 
           & ~ .ai-chat-input-group {
-            padding-top: 10px !important;
+            padding-top: 38px !important;
             border-top: none !important;
           }
         }
@@ -614,11 +605,11 @@ browser {
       }
 
       .ai-chat-input-actions {
-        display: flex;
+        position: relative;
         flex-shrink: 0;
-        align-items: flex-end;
-        gap: 4px;
-        padding-bottom: 1px;
+        width: 32px;
+        height: 32px;
+        align-self: flex-end;
       }
 
       .send-btn,
@@ -627,20 +618,27 @@ browser {
         outline: none !important;
         border: none !important;
         border-radius: 999px !important;
+        position: absolute !important;
+        inset: 0 !important;
         width: 32px !important;
         height: 32px !important;
         min-width: 32px !important;
         min-height: 32px !important;
         padding: 0 !important;
+        margin: 0 !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         cursor: pointer;
-        flex-shrink: 0;
         transition:
           transform 0.15s ease,
           background-color 0.2s ease,
           opacity 0.2s ease;
+
+        &[hidden] {
+          display: none !important;
+          pointer-events: none !important;
+        }
 
         svg {
           width: 16px !important;
@@ -830,24 +828,23 @@ browser {
         }
       }
 
-      .ai-chat-header {
-        width: 100% !important;
+      .browse-bot-chat-toolbar {
+        width: auto !important;
         top: -30px !important;
-        position: absolute !important;
-        transition: all 0.2s ease !important;
+        right: 10px !important;
+        transition: opacity 0.2s ease !important;
+        opacity: 0 !important;
 
         &::after {
           content: "";
           position: absolute !important;
           border-radius: var(--acrylic-radius) !important;
           opacity: 0 !important;
-          top: 0px !important;
+          top: 0 !important;
           width: 140px !important;
           height: 100% !important;
-          position: absolute !important;
-          right: 10px !important;
-          transition: all 0.2s ease !important;
-          /*border: 1px red solid !important; */
+          right: 0 !important;
+          transition: opacity 0.2s ease !important;
           background: var(--browse-bot-dialog-bg) !important;
           backdrop-filter: var(--browse-bot-dialog-backdrop-filter);
           outline: 1px solid rgba(0, 0, 0, 1) !important;
@@ -860,78 +857,62 @@ browser {
           padding-bottom: 4px !important;
           margin-bottom: -2px !important;
           clip-path: inset(0 0 15% 0);
+          z-index: -1 !important;
+        }
+      }
+
+      .browse-bot-chat .findbar-drag-handle {
+        width: 20px !important;
+        height: 28px !important;
+        inset: auto !important;
+        top: -30px !important;
+        right: auto !important;
+        left: 0 !important;
+        opacity: 0 !important;
+        background: var(--browse-bot-dialog-bg) !important;
+        backdrop-filter: var(--browse-bot-dialog-backdrop-filter);
+        outline: 1px solid rgba(0, 0, 0, 1) !important;
+
+        @media -moz-pref("extension.browse-bot.findbar-ai.background-style", "pseudo") {
+          background: var(--acrylic-bg) !important;
         }
 
-        .findbar-drag-handle {
-          width: 20px !important;
-          opacity: 0 !important;
-          background: var(--browse-bot-dialog-bg) !important;
-          backdrop-filter: var(--browse-bot-dialog-backdrop-filter);
-          outline: 1px solid rgba(0, 0, 0, 1) !important;
+        border: 1px solid light-dark(rgba(20, 20, 20, 0.2), rgba(235, 235, 235, 0.3)) !important;
+        border-bottom: none !important;
+        border-radius: 4px !important;
+        clip-path: inset(0 0 15% 0);
 
-          @media -moz-pref("extension.browse-bot.findbar-ai.background-style", "pseudo") {
-            background: var(--acrylic-bg) !important;
-          }
-
-          border: 1px solid light-dark(rgba(20, 20, 20, 0.2), rgba(235, 235, 235, 0.3)) !important;
-          border-bottom: none !important;
-          padding-bottom: 4px !important;
-          margin-bottom: -2px !important;
-          clip-path: inset(0 0 15% 0);
-          border-radius: 4px !important;
+        &::after {
+          content: url("chrome://browser/skin/zen-icons/drag-indicator.svg") !important;
+          -moz-context-properties: fill !important;
+          fill: light-dark(black, white) !important;
           display: flex !important;
           justify-content: center !important;
-          align-content: center !important;
-          position: relative !important;
-
-          &::after {
-            content: url("chrome://browser/skin/zen-icons/drag-indicator.svg") !important;
-            -moz-context-properties: fill !important;
-            fill: light-dark(black, white) !important;
-            padding-top: 6px !important;
-          }
-
-          @media not -moz-pref("extension.browse-bot.findbar-ai.dnd-enabled") {
-            display: none !important;
-          }
+          padding-top: 6px !important;
         }
 
-        .clear-chat-btn,
-        .settings-btn,
-        .findbar-collapse-btn {
-          position: absolute !important;
-          z-index: 2 !important;
-          opacity: 0 !important;
-        }
-
-        .findbar-collapse-btn {
-          right: 50px !important;
-        }
-
-        .clear-chat-btn {
-          right: 84px !important;
-        }
-
-        .settings-btn {
-          right: 116px !important;
+        @media not -moz-pref("extension.browse-bot.findbar-ai.dnd-enabled") {
+          display: none !important;
         }
       }
 
       &:has(.findbar-closebutton:hover),
       &:has(.findbar-drag-handle:active),
-      &:has(.ai-chat-header:hover) {
-        .clear-chat-btn,
-        .settings-btn,
-        .findbar-collapse-btn,
-        .findbar-closebutton,
-        .findbar-drag-handle,
-        .ai-chat-header::after {
+      &:has(.browse-bot-chat-toolbar:hover),
+      &:has(.browse-bot-chat:hover) {
+        .browse-bot-chat-toolbar,
+        .browse-bot-chat .findbar-drag-handle,
+        .findbar-closebutton {
+          opacity: 1 !important;
+        }
+
+        .browse-bot-chat-toolbar::after {
           opacity: 1 !important;
         }
       }
 
       &:not(.ai-expanded) {
-        .ai-chat-header {
+        .browse-bot-chat-toolbar {
           display: none !important;
         }
 
@@ -954,6 +935,11 @@ browser {
         .ai-chat-input-shell {
           padding: 6px 6px 6px 10px;
           border-radius: 12px;
+        }
+
+        .ai-chat-input-actions {
+          width: 28px;
+          height: 28px;
         }
 
         .send-btn,
