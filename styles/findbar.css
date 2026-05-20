@@ -87,9 +87,10 @@ browser {
     position: fixed;
     top: 35px;
     right: 15px;
-    width: 420px;
-    max-width: 560px !important;
+    width: var(--browse-bot-findbar-width, 420px) !important;
+    max-width: var(--browse-bot-findbar-max-width, 420px) !important;
     min-width: 300px !important;
+    overflow-x: hidden !important;
     height: unset !important;
     border-radius: var(--acrylic-radius) !important;
     outline: 1px solid rgba(0, 0, 0, 1) !important;
@@ -743,7 +744,8 @@ browser {
     }
 
     @media -moz-pref("extension.browse-bot.findbar-ai.minimal") {
-      width: 420px;
+      width: var(--browse-bot-findbar-width, 420px) !important;
+      max-width: var(--browse-bot-findbar-max-width, 420px) !important;
       min-height: 36px !important;
       align-items: center !important;
       flex-direction: column !important;

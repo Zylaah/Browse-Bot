@@ -1540,6 +1540,15 @@ function renderMarkdown(markdown, target) {
 }
 
 PREFS.setInitialPrefs();
+document.documentElement.style.setProperty(
+  "--browse-bot-findbar-width",
+  `${clampFindbarWidth(PREFS.width)}px`
+);
+document.documentElement.style.setProperty(
+  "--browse-bot-findbar-max-width",
+  `${clampFindbarWidth(PREFS.width)}px`
+);
+
 const browseBotFindbar = {
   findbar: null,
   expandButton: null,
@@ -1599,18 +1608,34 @@ const browseBotFindbar = {
    */
   _saveFindbarDimensions() {
     if (!this.findbar || !PREFS.rememberDimensions) return;
-    const rect = this.findbar.getBoundingClientRect();
-    PREFS.width = clampFindbarWidth(rect.width);
+    const inlineWidth = parseInt(this.findbar.style.width, 10);
+    PREFS.width = clampFindbarWidth(
+      Number.isFinite(inlineWidth) ? inlineWidth : PREFS.width
+    );
   },
 
   /**
    * Apply findbar dimensions in saved prefs
    */
   _applyFindbarDimensions() {
-    if (!this.findbar) return;
     const width = clampFindbarWidth(PREFS.width);
-    this.findbar.style.width = `${width}px`;
-    this.findbar.style.maxWidth = `${FINDBAR_MAX_WIDTH}px`;
+    document.documentElement.style.setProperty("--browse-bot-findbar-width", `${width}px`);
+    document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${width}px`);
+
+    if (!this.findbar) return;
+    this.findbar.style.setProperty("width", `${width}px`, "important");
+    this.findbar.style.setProperty("max-width", `${width}px`, "important");
+    this.findbar.style.setProperty("min-width", `${FINDBAR_MIN_WIDTH}px`, "important");
+  },
+
+  _setFindbarWidthPx(widthPx) {
+    const width = clampFindbarWidth(widthPx);
+    document.documentElement.style.setProperty("--browse-bot-findbar-width", `${width}px`);
+    document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${width}px`);
+    if (!this.findbar) return;
+    this.findbar.style.setProperty("width", `${width}px`, "important");
+    this.findbar.style.setProperty("max-width", `${width}px`, "important");
+    return width;
   },
   _isStreaming: false,
   _abortController: null,
@@ -1624,8 +1649,11 @@ const browseBotFindbar = {
     if (!this.findbar) return;
     this.findbar.expanded = value;
     if (isChanged) {
-      setTimeout(() => this._updateFindbarDimensions(), 2);
-      setTimeout(() => this._updateFindbarDimensions(), 20);
+      setTimeout(() => this._applyFindbarDimensions(), 2);
+      setTimeout(() => {
+        this._applyFindbarDimensions();
+        this._updateFindbarDimensions();
+      }, 20);
     }
 
     if (value) {
@@ -2493,7 +2521,7 @@ const browseBotFindbar = {
     const directionFactor = PREFS.position.includes("right") ? -1 : 1;
     let newWidth = this.startWidth + (e.clientX - this._initialMouseCoor.x) * directionFactor;
     newWidth = Math.min(Math.max(newWidth, minWidth), maxWidth);
-    this.findbar.style.width = `${newWidth}px`;
+    this._setFindbarWidthPx(newWidth);
     this._updateFindbarDimensions();
   },
 
@@ -2569,6 +2597,9 @@ const browseBotFindbar = {
         this.disableResize();
       }
     });
+    this._widthListener = addPrefListener(PREFS.WIDTH, () => {
+      this._applyFindbarDimensions();
+    });
   },
 
   removeListeners() {
@@ -2586,6 +2617,7 @@ const browseBotFindbar = {
     removePrefListener(this._minimalListener);
     removePrefListener(this._persistListener);
     removePrefListener(this._dndListener);
+    removePrefListener(this._widthListener);
     this.disableResize();
 
     this._handleInputKeyPress = null;
@@ -2595,6 +2627,7 @@ const browseBotFindbar = {
     this._contextMenuEnabledListener = null;
     this._minimalListener = null;
     this._dndListener = null;
+    this._widthListener = null;
     this._handleFindbarOpenEvent = null;
     this._handleFindbarCloseEvent = null;
   },
