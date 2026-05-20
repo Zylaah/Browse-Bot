@@ -1692,6 +1692,14 @@ const browseBotFindbar = {
         if (status && status.parentElement !== wrapper) wrapper.appendChild(status);
       }
 
+      if (matches) {
+        matches.hidden = true;
+        matches.setAttribute("value", "");
+      }
+      if (status) status.hidden = true;
+      this.findbar.querySelector(".findbar-find-next")?.setAttribute("disabled", "true");
+      this.findbar.querySelector(".findbar-find-previous")?.setAttribute("disabled", "true");
+
       this.findbar._findField.removeEventListener("keypress", this._handleInputKeyPress);
       this.findbar._findField.addEventListener("keypress", this._handleInputKeyPress);
       this.findbar._findField.removeEventListener("input", this._handleFindFieldInput);
@@ -2021,10 +2029,13 @@ const browseBotFindbar = {
       const foundMatchesElement = this._foundMatches;
       if (typeof result?.current !== "number" || typeof result?.total !== "number") return;
 
+      const hasSearch = result.searchString.trim() !== "";
+      const hasMatches = hasSearch && result.total > 0;
+
       const next = this.querySelector(".findbar-find-next");
       const previous = this.querySelector(".findbar-find-previous");
       if (next && previous) {
-        if (result.searchString.trim() === "" || result.total <= 1) {
+        if (!hasMatches || result.total <= 1) {
           next.disabled = true;
           previous.disabled = true;
         } else if (result.current <= 1) {
@@ -2039,15 +2050,21 @@ const browseBotFindbar = {
         }
       }
 
+      const status = this.querySelector(".findbar-find-status");
+      if (status) {
+        status.hidden = !hasSearch || hasMatches;
+      }
+
       if (!foundMatchesElement) return;
-      if (result.searchString.trim() === "") {
+
+      if (!hasMatches) {
+        foundMatchesElement.hidden = true;
         foundMatchesElement.setAttribute("value", "");
         return;
       }
 
       foundMatchesElement.hidden = false;
-      const newLabel = `${result.current}/${result.total}`;
-      foundMatchesElement.setAttribute("value", newLabel);
+      foundMatchesElement.setAttribute("value", `${result.current}/${result.total}`);
     };
     PREFS.debugLog("onMatchesCountResult successfully overridden.");
   },
