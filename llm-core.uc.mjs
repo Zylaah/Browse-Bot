@@ -106,8 +106,25 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Insert HTML via DOMParser (safe in XUL — avoids innerHTML XML errors on br/hr).
+ * @param {HTMLElement} element
+ * @param {string} html
+ */
+function setElementHtmlFromMarkup(element, html) {
+  element.replaceChildren();
+  const trimmed = String(html ?? "").trim();
+  if (!trimmed) return;
+
+  const doc = new DOMParser().parseFromString(trimmed, "text/html");
+  const fragment = document.createDocumentFragment();
+  for (const node of doc.body.childNodes) {
+    fragment.appendChild(node.cloneNode(true));
+  }
+  element.appendChild(fragment);
+}
+
 function renderMarkdownFallback(text, element) {
-  element.textContent = "";
   const html = String(text)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -116,8 +133,8 @@ function renderMarkdownFallback(text, element) {
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\n\n+/g, "</p><p>")
-    .replace(/\n/g, "<br>");
-  element.innerHTML = `<p>${html}</p>`;
+    .replace(/\n/g, "<br />");
+  setElementHtmlFromMarkup(element, `<p>${html}</p>`);
 }
 
 /**
@@ -126,10 +143,9 @@ function renderMarkdownFallback(text, element) {
  */
 export function renderMarkdownToElement(text, element) {
   if (!text) {
-    element.textContent = "";
+    element.replaceChildren();
     return;
   }
-  element.textContent = "";
 
   if (!markedLib || !DOMPurifyLib) {
     initMarkdownVendors();
@@ -144,13 +160,13 @@ export function renderMarkdownToElement(text, element) {
       );
       const withClasses = withCitations
         .replace(/<table>/g, '<table class="llm-markdown-table">')
-        .replace(/<hr>/g, '<hr class="llm-markdown-hr">')
+        .replace(/<hr>/gi, '<hr class="llm-markdown-hr" />')
         .replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
       const sanitized = DOMPurifyLib.sanitize(withClasses.trim(), {
         ALLOWED_URI_REGEXP: /^https?:\/\//i,
-        ADD_ATTR: ["target", "rel", "data-citation-id"],
+        ADD_ATTR: ["target", "rel", "data-citation-id", "class"],
       });
-      element.innerHTML = sanitized.trim();
+      setElementHtmlFromMarkup(element, sanitized.trim());
       return;
     } catch {
       /* fallback below */

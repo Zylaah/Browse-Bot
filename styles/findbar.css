@@ -87,9 +87,9 @@ browser {
     position: fixed;
     top: 35px;
     right: 15px;
-    width: 300px !important;
-    max-width: 300px !important;
-    min-width: 300px !important;
+    width: 400px !important;
+    max-width: 400px !important;
+    min-width: 400px !important;
     overflow-x: hidden !important;
     height: unset !important;
     border-radius: var(--acrylic-radius) !important;
@@ -437,6 +437,30 @@ browser {
         max-width: 100%;
       }
 
+      .chat-message-ai .markdown-body {
+        font-size: 12px !important;
+        line-height: 1.45 !important;
+
+        h1 {
+          font-size: 1.35em !important;
+        }
+        h2 {
+          font-size: 1.25em !important;
+        }
+        h3 {
+          font-size: 1.15em !important;
+        }
+        h4,
+        h5,
+        h6 {
+          font-size: 1.05em !important;
+        }
+        pre,
+        code {
+          font-size: 11px !important;
+        }
+      }
+
       .ai-chat-messages,
       .ai-chat-input-group {
         position: relative;
@@ -736,9 +760,9 @@ browser {
     }
 
     @media -moz-pref("extension.browse-bot.findbar-ai.minimal") {
-      width: 300px !important;
-      max-width: 300px !important;
-      min-width: 300px !important;
+      width: 400px !important;
+      max-width: 400px !important;
+      min-width: 400px !important;
       min-height: 36px !important;
       align-items: center !important;
       flex-direction: column !important;
@@ -842,7 +866,7 @@ browser {
     padding: 20px;
     text-align: center;
     position: relative;
-    width: 300px;
+    width: 400px;
     height: 100px;
     min-width: 200px;
     max-width: 90vw;
