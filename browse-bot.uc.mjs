@@ -1967,6 +1967,53 @@ const browseBotFindbar = {
     }
   },
 
+  /**
+   * Hide match counter and nav arrows unless there are 2+ matches.
+   * @param {Element} findbarEl
+   * @param {object} result
+   */
+  _syncFindMatchChrome(findbarEl, result) {
+    if (typeof result?.current !== "number" || typeof result?.total !== "number") return;
+
+    const hasSearch = result.searchString.trim() !== "";
+    const hasMatches = hasSearch && result.total > 0;
+
+    const next = findbarEl.querySelector(".findbar-find-next");
+    const previous = findbarEl.querySelector(".findbar-find-previous");
+    if (next && previous) {
+      if (!hasMatches || result.total <= 1) {
+        next.disabled = true;
+        previous.disabled = true;
+      } else if (result.current <= 1) {
+        next.disabled = false;
+        previous.disabled = true;
+      } else if (result.current >= result.total) {
+        next.disabled = true;
+        previous.disabled = false;
+      } else {
+        next.disabled = false;
+        previous.disabled = false;
+      }
+    }
+
+    const status = findbarEl.querySelector(".findbar-find-status");
+    if (status) {
+      status.hidden = !hasSearch || hasMatches;
+    }
+
+    const foundMatchesElement = findbarEl._foundMatches;
+    if (!foundMatchesElement) return;
+
+    if (!hasMatches) {
+      foundMatchesElement.hidden = true;
+      foundMatchesElement.setAttribute("value", "");
+      return;
+    }
+
+    foundMatchesElement.hidden = false;
+    foundMatchesElement.setAttribute("value", `${result.current}/${result.total}`);
+  },
+
   _toggleStreamingControls(isStreaming) {
     this._isStreaming = isStreaming;
     if (!this.chatContainer) return;
@@ -2023,48 +2070,19 @@ const browseBotFindbar = {
     PREFS.debugLog("findbarClass found. Overriding onMatchesCountResult.");
     this._originalOnMatchesCountResult = findbarClass.onMatchesCountResult;
 
+    const self = this;
     findbarClass.onMatchesCountResult = function (result) {
-      if (!PREFS.enabled) return;
-
-      const foundMatchesElement = this._foundMatches;
-      if (typeof result?.current !== "number" || typeof result?.total !== "number") return;
-
-      const hasSearch = result.searchString.trim() !== "";
-      const hasMatches = hasSearch && result.total > 0;
-
-      const next = this.querySelector(".findbar-find-next");
-      const previous = this.querySelector(".findbar-find-previous");
-      if (next && previous) {
-        if (!hasMatches || result.total <= 1) {
-          next.disabled = true;
-          previous.disabled = true;
-        } else if (result.current <= 1) {
-          next.disabled = false;
-          previous.disabled = true;
-        } else if (result.current >= result.total) {
-          next.disabled = true;
-          previous.disabled = false;
-        } else {
-          next.disabled = false;
-          previous.disabled = false;
-        }
+      const original = self._originalOnMatchesCountResult;
+      let ret;
+      if (original) {
+        ret = original.call(this, result);
       }
 
-      const status = this.querySelector(".findbar-find-status");
-      if (status) {
-        status.hidden = !hasSearch || hasMatches;
+      if (PREFS.enabled) {
+        self._syncFindMatchChrome(this, result);
       }
 
-      if (!foundMatchesElement) return;
-
-      if (!hasMatches) {
-        foundMatchesElement.hidden = true;
-        foundMatchesElement.setAttribute("value", "");
-        return;
-      }
-
-      foundMatchesElement.hidden = false;
-      foundMatchesElement.setAttribute("value", `${result.current}/${result.total}`);
+      return ret;
     };
     PREFS.debugLog("onMatchesCountResult successfully overridden.");
   },

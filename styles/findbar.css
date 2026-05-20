@@ -258,10 +258,6 @@ browser {
           transition: scale 0.2s ease !important;
           opacity: 1 !important;
 
-          &[disabled="true"] {
-            display: none !important;
-          }
-
           label {
             display: none !important;
           }
@@ -325,10 +321,12 @@ browser {
       }
 
       #findbar-ask {
+        display: inline-flex !important;
         margin-right: 5px !important;
         min-width: 20px !important;
         font-size: 12px !important;
         overflow: visible !important;
+        flex-shrink: 0 !important;
       }
     }
 
