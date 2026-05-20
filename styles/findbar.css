@@ -318,10 +318,8 @@ browser {
 
       .findbar-find-status {
         display: none !important;
-
-        &:not([hidden]) {
-          display: flex !important;
-        }
+        visibility: hidden !important;
+        pointer-events: none !important;
       }
 
       .checkbox-label {
@@ -783,22 +781,53 @@ browser {
         margin-inline-start: 0 !important;
         height: 32px !important;
         width: 100% !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
 
         & > :first-child {
+          display: flex !important;
+          flex: 1 1 auto !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center !important;
           border-bottom: 0 !important;
-          width: calc(100% - 35px) !important;
+          width: auto !important;
+          min-width: 0 !important;
+          margin-top: 0 !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
           padding-right: 3px !important;
 
           &::before {
-            margin-top: 5px !important;
-            margin-right: 10px;
-            margin-left: -5px;
+            flex-shrink: 0 !important;
+            margin-top: 0 !important;
+            margin-right: 8px;
+            margin-left: 0;
           }
         }
 
         hbox[anonid="findbar-textbox-wrapper"] {
+          flex: 1 1 auto !important;
+          min-width: 0 !important;
           margin: 0 !important;
           padding: 0 !important;
+        }
+
+        .found-matches {
+          flex: 0 0 auto !important;
+          margin: 0 0 0 8px !important;
+          padding: 0 !important;
+
+          &:not([hidden]) {
+            display: inline-flex !important;
+            align-items: center !important;
+          }
+        }
+
+        #findbar-ask {
+          flex: 0 0 auto !important;
+          align-self: center !important;
+          margin: 0 0 0 6px !important;
         }
 
         checkbox {

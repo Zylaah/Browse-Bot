@@ -2339,7 +2339,15 @@ const browseBotFindbar = {
           this.findbar._findField.value = "";
           this.focusInput();
         });
-        container.appendChild(askBtn);
+        const row = container.firstElementChild;
+        const wrapper = row?.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
+        if (wrapper) {
+          wrapper.insertAdjacentElement("afterend", askBtn);
+        } else if (row) {
+          row.appendChild(askBtn);
+        } else {
+          container.appendChild(askBtn);
+        }
         this.askButton = askBtn;
       }
     } else {
