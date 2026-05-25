@@ -154,6 +154,9 @@ browser {
         cursor: e-resize;
       }
     }
+    .close-icon.findbar-closebutton{
+      margin: 0 !important;
+    }
 
     .findbar-closebutton {
       width: 22px !important;
@@ -526,7 +529,7 @@ browser {
       }
 
       .chat-message-user {
-        align-self: flex-end;
+        align-self: flex-start;
         background: var(--browse-bot-primary-bg);
         color: var(--tab-selected-textcolor);
         border-bottom-right-radius: 4px;
