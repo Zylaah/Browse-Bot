@@ -201,11 +201,18 @@ browser {
       position: absolute !important;
       top: 7px !important;
       right: 4px !important;
+      z-index: 20 !important;
+      pointer-events: auto !important;
     }
 
     &.ai-expanded {
       .findbar-container {
         display: none !important;
+      }
+
+      .findbar-closebutton {
+        z-index: 30 !important;
+        pointer-events: auto !important;
       }
 
       @media not -moz-pref("extension.browse-bot.findbar-ai.minimal") {
@@ -538,7 +545,7 @@ browser {
       }
 
       .chat-message-ai {
-        max-width: calc(100% - 15px) !important;
+        max-width: calc(100% - 35px) !important;
         align-self: flex-start;
       }
 
@@ -670,13 +677,8 @@ browser {
 
       .stop-btn {
         z-index: 2;
-        background: var(--browse-bot-error) !important;
-        color: white !important;
-
-        svg {
-          width: 12px !important;
-          height: 12px !important;
-        }
+        background: var(--browse-bot-error-bg) !important;
+        color: var(--browse-bot-error) !important;
       }
 
       .ai-chat-input-actions[data-streaming="true"] {
@@ -978,11 +980,6 @@ browser {
           width: 28px;
           height: 28px;
           border-radius: 7px;
-        }
-
-        .stop-btn svg {
-          width: 11px !important;
-          height: 11px !important;
         }
       }
     }
