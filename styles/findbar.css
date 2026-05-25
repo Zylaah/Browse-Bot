@@ -156,40 +156,48 @@ browser {
     }
 
     .findbar-closebutton {
-      width: 28px !important;
-      height: 28px !important;
+      width: 22px !important;
+      height: 22px !important;
+      min-width: 22px !important;
+      min-height: 22px !important;
+      padding: 0 !important;
       appearance: none !important;
       outline: none !important;
       border: none !important;
-      border-radius: 5px !important;
-      transition: all 0.2s ease !important;
+      border-radius: 4px !important;
+      transition:
+        opacity 0.15s ease,
+        scale 0.15s ease !important;
       display: inline-flex !important;
+      align-items: center !important;
       justify-content: center !important;
-      align-content: center !important;
       background-color: transparent !important;
+      background-image: none !important;
+      box-shadow: none !important;
       -moz-context-properties: fill !important;
       fill: light-dark(black, white) !important;
-      /* border: 1px solid red !important; */
+      opacity: 0.72 !important;
 
       label {
         display: none !important;
       }
 
       &:hover {
-        background: var(--tab-hover-background-color) !important;
-        border: none !important;
+        opacity: 1 !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        box-shadow: none !important;
       }
 
       &:active {
-        scale: 0.9 !important;
+        scale: 0.92 !important;
       }
     }
 
     .findbar-closebutton {
       position: absolute !important;
       top: 7px !important;
-      right: 0 !important;
-      transition: background-color 0.2s ease !important;
+      right: 4px !important;
     }
 
     &.ai-expanded {
@@ -591,6 +599,9 @@ browser {
         width: 32px;
         height: 32px;
         align-self: flex-end;
+        overflow: hidden;
+        border-radius: 8px;
+        isolation: isolate;
       }
 
       .send-btn,
@@ -598,58 +609,81 @@ browser {
         appearance: none !important;
         outline: none !important;
         border: none !important;
+        box-shadow: none !important;
         position: absolute !important;
-        inset: 0 !important;
-        width: 32px !important;
-        height: 32px !important;
-        min-width: 32px !important;
-        min-height: 32px !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
         padding: 0 !important;
         margin: 0 !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         cursor: pointer;
+        border-radius: inherit;
+        box-sizing: border-box !important;
+        line-height: 0 !important;
         transition:
-          transform 0.15s ease,
-          background-color 0.2s ease,
-          opacity 0.2s ease;
+          opacity 0.15s ease,
+          background-color 0.15s ease;
 
         &[hidden] {
           display: none !important;
+          visibility: hidden !important;
           pointer-events: none !important;
         }
 
         svg {
+          display: block !important;
           width: 16px !important;
           height: 16px !important;
+          flex-shrink: 0;
           -moz-context-properties: fill;
           fill: currentColor;
         }
 
         &:hover:not(:disabled) {
-          transform: scale(1.04);
+          opacity: 0.92;
         }
 
         &:active:not(:disabled) {
-          transform: scale(0.96);
+          opacity: 0.82;
         }
 
         &:disabled {
           cursor: not-allowed;
           opacity: 0.45;
-          transform: none;
         }
       }
 
       .send-btn {
+        z-index: 1;
         background: var(--browse-bot-primary-bg) !important;
         color: light-dark(rgb(24, 24, 27), white) !important;
       }
 
       .stop-btn {
-        background: var(--browse-bot-error-bg) !important;
-        color: var(--browse-bot-error) !important;
+        z-index: 2;
+        background: var(--browse-bot-error) !important;
+        color: white !important;
+
+        svg {
+          width: 12px !important;
+          height: 12px !important;
+        }
+      }
+
+      .ai-chat-input-actions[data-streaming="true"] {
+        .send-btn {
+          display: none !important;
+        }
+
+        .stop-btn {
+          display: inline-flex !important;
+        }
       }
 
       .chat-message-loading {
@@ -761,16 +795,12 @@ browser {
       max-width: 400px !important;
       min-width: 400px !important;
       min-height: 36px !important;
-      align-items: center !important;
+      align-items: stretch !important;
       flex-direction: column !important;
       overflow: visible !important;
 
       #findbar-expand {
         display: none !important;
-      }
-
-      .findbar-closebutton {
-        top: 1px !important;
       }
 
       .findbar-container {
@@ -780,8 +810,21 @@ browser {
         align-items: center !important;
         margin-bottom: 0 !important;
         margin-inline-start: 0 !important;
-        height: 32px !important;
+        row-gap: 0 !important;
+        height: 36px !important;
+        min-height: 36px !important;
         width: 100% !important;
+        box-sizing: border-box !important;
+
+        & > :first-child {
+          width: auto !important;
+          flex: 1 1 auto !important;
+          min-width: 0 !important;
+          margin-top: 0 !important;
+          padding-bottom: 0 !important;
+          padding-right: 0 !important;
+          position: static !important;
+        }
 
         hbox[anonid="findbar-textbox-wrapper"] {
           display: flex !important;
@@ -792,6 +835,7 @@ browser {
           order: 1 !important;
           min-width: 0 !important;
           width: auto !important;
+          height: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
           border-bottom: 0 !important;
@@ -800,26 +844,69 @@ browser {
             display: none !important;
             content: none !important;
           }
+
+          .findbar-textbox {
+            height: 24px !important;
+            line-height: 24px !important;
+          }
+
+          toolbarbutton {
+            width: 22px !important;
+            height: 22px !important;
+            min-width: 22px !important;
+            min-height: 22px !important;
+            margin-left: 4px !important;
+          }
         }
 
         .found-matches {
           flex: 0 0 auto !important;
           order: 2 !important;
-          margin: 0 6px 0 0 !important;
+          display: none !important;
+          margin: 0 8px 0 0 !important;
           padding: 0 !important;
+          line-height: 1 !important;
+          font-size: 12px !important;
           white-space: nowrap !important;
 
           &:not([hidden]) {
             display: inline-flex !important;
             align-items: center !important;
+            height: 24px !important;
           }
         }
 
         #findbar-ask {
+          appearance: none !important;
+          outline: none !important;
+          border: none !important;
+          box-shadow: none !important;
           flex: 0 0 auto !important;
           order: 3 !important;
           align-self: center !important;
-          margin: 0 !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          height: 24px !important;
+          min-height: 24px !important;
+          margin: 0 0 0 2px !important;
+          padding: 0 10px !important;
+          border-radius: 6px !important;
+          font-size: 12px !important;
+          font-weight: 600 !important;
+          line-height: 1 !important;
+          cursor: pointer;
+          background: var(--browse-bot-primary-bg) !important;
+          color: light-dark(rgb(24, 24, 27), white) !important;
+          transition: opacity 0.15s ease;
+
+          &:hover {
+            opacity: 0.9;
+          }
+
+          &:active {
+            opacity: 0.78;
+          }
         }
 
         checkbox {
@@ -828,33 +915,53 @@ browser {
       }
 
       .findbar-closebutton {
-        top: -30px !important;
-        opacity: 0 !important;
+        top: 50% !important;
+        right: 6px !important;
+        width: 18px !important;
+        height: 18px !important;
+        min-width: 18px !important;
+        min-height: 18px !important;
+        transform: translateY(-50%) !important;
+        opacity: 0.55 !important;
 
         &:hover {
-          opacity: 1 !important;
+          opacity: 0.95 !important;
+          background-color: transparent !important;
         }
-      }
 
-      &:has(.findbar-closebutton:hover) {
-        .findbar-closebutton {
-          opacity: 1 !important;
+        &:active {
+          scale: 0.92 !important;
+          transform: translateY(-50%) !important;
         }
       }
 
       &:not(.ai-expanded) {
         .findbar-closebutton {
           display: inline-flex !important;
-          top: 1px !important;
-          opacity: 1 !important;
+          opacity: 0.72 !important;
         }
 
         .findbar-container {
-          padding: 0 35px 0 10px !important;
+          padding: 0 28px 0 10px !important;
         }
       }
 
       &.ai-expanded {
+        .findbar-closebutton {
+          top: 8px !important;
+          right: 6px !important;
+          transform: none !important;
+          width: 20px !important;
+          height: 20px !important;
+          min-width: 20px !important;
+          min-height: 20px !important;
+          opacity: 0.72 !important;
+
+          &:active {
+            transform: none !important;
+          }
+        }
+
         .ai-chat-input-group {
           padding: 6px 8px 8px 8px !important;
         }
@@ -867,19 +974,12 @@ browser {
         .ai-chat-input-actions {
           width: 28px;
           height: 28px;
+          border-radius: 7px;
         }
 
-        .send-btn,
-        .stop-btn {
-          width: 28px !important;
-          height: 28px !important;
-          min-width: 28px !important;
-          min-height: 28px !important;
-
-          svg {
-            width: 14px !important;
-            height: 14px !important;
-          }
+        .stop-btn svg {
+          width: 11px !important;
+          height: 11px !important;
         }
       }
     }
