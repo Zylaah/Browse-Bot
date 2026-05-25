@@ -868,7 +868,7 @@ browser {
           flex: 0 0 auto !important;
           order: 2 !important;
           display: none !important;
-          margin: 0 8px 0 0 !important;
+          margin: 0 8px 0 8px !important;
           padding: 0 !important;
           line-height: 1 !important;
           font-size: 12px !important;
@@ -1037,5 +1037,8 @@ browser {
 }
 
 .findbar-find-previous {
-  margin-inline: 0 8px !important;
+  margin-inline: 0 !important;
+}
+.findbar-find-next {
+  margin-inline: 0 !important;
 }
