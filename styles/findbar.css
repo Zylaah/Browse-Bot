@@ -507,8 +507,7 @@ browser {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        scrollbar-width: thin;
-        scrollbar-color: color-mix(in srgb, var(--browse-bot-muted) 50%, transparent) transparent;
+        scrollbar-width: none;
 
         &:empty {
           display: none !important;
