@@ -81,34 +81,19 @@
       transform: translateY(-10px);
     }
 
-    @media -moz-pref("extension.browse-bot.findbar-ai.position", "top-right") {
-      top: 15px;
-      left: calc(100% - 15px - var(--findbar-width, 400px));
-    }
+    min-height: 36px !important;
+    align-items: stretch !important;
+    overflow: visible !important;
 
-    @media -moz-pref("extension.browse-bot.findbar-ai.position", "top-left") {
-      top: 15px;
-      left: 15px;
-    }
-
-    @media -moz-pref("extension.browse-bot.findbar-ai.position", "bottom-right") {
-      top: calc(100% - 15px - var(--findbar-height, 36px));
-      left: calc(100% - 15px - var(--findbar-width, 400px));
-    }
-
-    @media -moz-pref("extension.browse-bot.findbar-ai.position", "bottom-left") {
-      top: calc(100% - 15px - var(--findbar-height, 36px));
-      left: 15px;
-    }
-    .close-icon.findbar-closebutton{
+    .close-icon.findbar-closebutton {
       margin: 0 !important;
     }
 
     .findbar-closebutton {
-      width: 22px !important;
-      height: 22px !important;
-      min-width: 22px !important;
-      min-height: 22px !important;
+      width: 18px !important;
+      height: 18px !important;
+      min-width: 18px !important;
+      min-height: 18px !important;
       padding: 0 !important;
       appearance: none !important;
       outline: none !important;
@@ -125,14 +110,20 @@
       box-shadow: none !important;
       -moz-context-properties: fill !important;
       fill: light-dark(black, white) !important;
-      opacity: 0.72 !important;
+      position: absolute !important;
+      top: 50% !important;
+      right: 6px !important;
+      z-index: 20 !important;
+      pointer-events: auto !important;
+      transform: translateY(-50%) !important;
+      opacity: 0.55 !important;
 
       label {
         display: none !important;
       }
 
       &:hover {
-        opacity: 1 !important;
+        opacity: 0.95 !important;
         background-color: transparent !important;
         background-image: none !important;
         box-shadow: none !important;
@@ -140,15 +131,19 @@
 
       &:active {
         scale: 0.92 !important;
+        transform: translateY(-50%) !important;
       }
     }
 
-    .findbar-closebutton {
-      position: absolute !important;
-      top: 7px !important;
-      right: 4px !important;
-      z-index: 20 !important;
-      pointer-events: auto !important;
+    &:not(.ai-expanded) {
+      .findbar-closebutton {
+        display: inline-flex !important;
+        opacity: 0.72 !important;
+      }
+
+      .findbar-container {
+        padding: 0 28px 0 10px !important;
+      }
     }
 
     &.ai-expanded {
@@ -157,36 +152,60 @@
       }
 
       .findbar-closebutton {
+        top: 8px !important;
+        right: 6px !important;
+        transform: none !important;
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
         z-index: 30 !important;
         pointer-events: auto !important;
-      }
+        opacity: 0.72 !important;
 
-      @media not -moz-pref("extension.browse-bot.findbar-ai.minimal") {
-        .findbar-closebutton {
-          top: 0px !important;
+        &:active {
+          transform: none !important;
         }
       }
 
-      #findbar-expand {
-        display: none;
+      .ai-chat-input-group {
+        padding: 6px 8px 8px 8px !important;
+      }
+
+      .ai-chat-input-shell {
+        padding: 6px 6px 6px 10px;
+        border-radius: 12px;
+      }
+
+      .ai-chat-input-actions {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
       }
     }
 
     .findbar-container {
       display: flex !important;
       flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
       justify-content: center !important;
-      margin-bottom: 5px !important;
-      flex-wrap: wrap;
-      height: auto !important;
-      row-gap: 10px;
+      margin-bottom: 0 !important;
+      margin-inline-start: 0 !important;
+      row-gap: 0 !important;
+      height: 36px !important;
+      min-height: 36px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
 
       & > :first-child {
-        width: 100% !important;
-        margin-top: 8px !important;
-        padding-bottom: 10px !important;
-        position: relative;
-        padding-right: 30px !important;
+        width: auto !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        margin-top: 0 !important;
+        padding-bottom: 0 !important;
+        padding-right: 0 !important;
+        position: static !important;
 
         &::before,
         hbox[anonid="findbar-textbox-wrapper"]::before {
@@ -195,63 +214,69 @@
         }
 
         hbox[anonid="findbar-textbox-wrapper"] {
-          position: relative !important;
-          z-index: 2 !important;
-          pointer-events: auto !important;
-        }
-
-        .findbar-textbox {
-          background: none !important;
+          display: flex !important;
+          flex: 1 1 auto !important;
+          flex-direction: row !important;
+          flex-wrap: nowrap !important;
+          align-items: center !important;
+          order: 1 !important;
+          min-width: 0 !important;
+          width: auto !important;
+          height: 100% !important;
+          margin: 0 !important;
           padding: 0 !important;
-          font-size: 14px !important;
-          font-weight: 500 !important;
-          box-shadow: none !important;
-          width: 100% !important;
-          border: none !important;
-          pointer-events: auto !important;
+          border-bottom: 0 !important;
           position: relative !important;
           z-index: 2 !important;
+          pointer-events: auto !important;
 
-          &:focus {
-            outline: none !important;
+          .findbar-textbox {
+            background: none !important;
+            padding: 0 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            height: 24px !important;
+            line-height: 24px !important;
+            border: none !important;
+            pointer-events: auto !important;
+            position: relative !important;
+            z-index: 2 !important;
+
+            &:focus {
+              outline: none !important;
+            }
+          }
+
+          toolbarbutton {
+            width: 22px !important;
+            height: 22px !important;
+            min-width: 22px !important;
+            min-height: 22px !important;
+            margin-left: 4px !important;
+            border-radius: 4px !important;
+            font-weight: 600 !important;
+            transition: scale 0.2s ease !important;
+            opacity: 1 !important;
+
+            label {
+              display: none !important;
+            }
+
+            &:hover {
+              background: var(--tab-hover-background-color) !important;
+            }
+
+            &:active {
+              scale: 0.9 !important;
+            }
           }
         }
-
-        toolbarbutton {
-          width: 28px !important;
-          height: 28px !important;
-          justify-content: center !important;
-          align-content: center !important;
-          margin-left: 6px !important;
-          border-radius: 4px !important;
-          font-weight: 600 !important;
-          transition: scale 0.2s ease !important;
-          opacity: 1 !important;
-
-          label {
-            display: none !important;
-          }
-
-          &:hover {
-            background: var(--tab-hover-background-color) !important;
-          }
-
-          &:active {
-            scale: 0.9 !important;
-          }
-        }
-      }
-
-      checkbox,
-      label,
-      description {
-        margin-left: 8px !important;
-        margin-right: 8px !important;
       }
 
       .findbar-label {
         display: none !important;
-        flex-basis: 100% !important;
       }
 
       .findbar-find-next,
@@ -264,16 +289,20 @@
       }
 
       .found-matches {
+        flex: 0 0 auto !important;
+        order: 2 !important;
         display: none !important;
-        font-size: 14px !important;
+        margin: 0 8px 0 8px !important;
+        padding: 0 !important;
+        line-height: 1 !important;
+        font-size: 12px !important;
+        white-space: nowrap !important;
         font-weight: 500 !important;
-        margin-top: 12px !important;
-        flex-basis: 0 !important;
-        margin: auto !important;
-        padding-right: 12px !important;
 
         &:not([hidden]) {
-          display: block !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          height: 24px !important;
         }
       }
 
@@ -283,18 +312,43 @@
         pointer-events: none !important;
       }
 
-      .checkbox-label {
+      #findbar-ask {
+        appearance: none !important;
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        flex: 0 0 auto !important;
+        order: 3 !important;
+        align-self: center !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 24px !important;
+        min-height: 24px !important;
+        margin: 0 0 0 2px !important;
+        padding: 0 10px !important;
+        border-radius: 6px !important;
         font-size: 12px !important;
-        font-weight: 500 !important;
+        font-weight: 600 !important;
+        line-height: 1 !important;
+        cursor: pointer;
+        background: var(--browse-bot-primary-bg) !important;
+        color: light-dark(rgb(24, 24, 27), white) !important;
+        transition: opacity 0.15s ease;
+
+        &:hover {
+          opacity: 0.9;
+        }
+
+        &:active {
+          opacity: 0.78;
+        }
       }
 
-      #findbar-ask {
-        display: inline-flex !important;
-        margin-right: 5px !important;
-        min-width: 20px !important;
-        font-size: 12px !important;
-        overflow: visible !important;
-        flex-shrink: 0 !important;
+      checkbox,
+      label,
+      description {
+        display: none !important;
       }
     }
 
@@ -679,211 +733,6 @@
 
       p:last-child {
         margin-bottom: 0;
-      }
-    }
-
-    #findbar-expand {
-      padding: 4px !important;
-      position: relative;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-      border-radius: 4px;
-      font-weight: 600;
-      border: none !important;
-      width: 100% !important;
-
-      &:active {
-        transform: translateY(0);
-      }
-    }
-
-    @media -moz-pref("extension.browse-bot.findbar-ai.minimal") {
-      width: 400px !important;
-      max-width: 400px !important;
-      min-width: 400px !important;
-      min-height: 36px !important;
-      align-items: stretch !important;
-      flex-direction: column !important;
-      overflow: visible !important;
-
-      #findbar-expand {
-        display: none !important;
-      }
-
-      .findbar-container {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        margin-bottom: 0 !important;
-        margin-inline-start: 0 !important;
-        row-gap: 0 !important;
-        height: 36px !important;
-        min-height: 36px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-
-        & > :first-child {
-          width: auto !important;
-          flex: 1 1 auto !important;
-          min-width: 0 !important;
-          margin-top: 0 !important;
-          padding-bottom: 0 !important;
-          padding-right: 0 !important;
-          position: static !important;
-        }
-
-        hbox[anonid="findbar-textbox-wrapper"] {
-          display: flex !important;
-          flex: 1 1 auto !important;
-          flex-direction: row !important;
-          flex-wrap: nowrap !important;
-          align-items: center !important;
-          order: 1 !important;
-          min-width: 0 !important;
-          width: auto !important;
-          height: 100% !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border-bottom: 0 !important;
-
-          &::before {
-            display: none !important;
-            content: none !important;
-          }
-
-          .findbar-textbox {
-            height: 24px !important;
-            line-height: 24px !important;
-          }
-
-          toolbarbutton {
-            width: 22px !important;
-            height: 22px !important;
-            min-width: 22px !important;
-            min-height: 22px !important;
-            margin-left: 4px !important;
-          }
-        }
-
-        .found-matches {
-          flex: 0 0 auto !important;
-          order: 2 !important;
-          display: none !important;
-          margin: 0 8px 0 8px !important;
-          padding: 0 !important;
-          line-height: 1 !important;
-          font-size: 12px !important;
-          white-space: nowrap !important;
-
-          &:not([hidden]) {
-            display: inline-flex !important;
-            align-items: center !important;
-            height: 24px !important;
-          }
-        }
-
-        #findbar-ask {
-          appearance: none !important;
-          outline: none !important;
-          border: none !important;
-          box-shadow: none !important;
-          flex: 0 0 auto !important;
-          order: 3 !important;
-          align-self: center !important;
-          display: inline-flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          height: 24px !important;
-          min-height: 24px !important;
-          margin: 0 0 0 2px !important;
-          padding: 0 10px !important;
-          border-radius: 6px !important;
-          font-size: 12px !important;
-          font-weight: 600 !important;
-          line-height: 1 !important;
-          cursor: pointer;
-          background: var(--browse-bot-primary-bg) !important;
-          color: light-dark(rgb(24, 24, 27), white) !important;
-          transition: opacity 0.15s ease;
-
-          &:hover {
-            opacity: 0.9;
-          }
-
-          &:active {
-            opacity: 0.78;
-          }
-        }
-
-        checkbox {
-          display: none !important;
-        }
-      }
-
-      .findbar-closebutton {
-        top: 50% !important;
-        right: 6px !important;
-        width: 18px !important;
-        height: 18px !important;
-        min-width: 18px !important;
-        min-height: 18px !important;
-        transform: translateY(-50%) !important;
-        opacity: 0.55 !important;
-
-        &:hover {
-          opacity: 0.95 !important;
-          background-color: transparent !important;
-        }
-
-        &:active {
-          scale: 0.92 !important;
-          transform: translateY(-50%) !important;
-        }
-      }
-
-      &:not(.ai-expanded) {
-        .findbar-closebutton {
-          display: inline-flex !important;
-          opacity: 0.72 !important;
-        }
-
-        .findbar-container {
-          padding: 0 28px 0 10px !important;
-        }
-      }
-
-      &.ai-expanded {
-        .findbar-closebutton {
-          top: 8px !important;
-          right: 6px !important;
-          transform: none !important;
-          width: 20px !important;
-          height: 20px !important;
-          min-width: 20px !important;
-          min-height: 20px !important;
-          opacity: 0.72 !important;
-
-          &:active {
-            transform: none !important;
-          }
-        }
-
-        .ai-chat-input-group {
-          padding: 6px 8px 8px 8px !important;
-        }
-
-        .ai-chat-input-shell {
-          padding: 6px 6px 6px 10px;
-          border-radius: 12px;
-        }
-
-        .ai-chat-input-actions {
-          width: 28px;
-          height: 28px;
-          border-radius: 7px;
-        }
       }
     }
   }

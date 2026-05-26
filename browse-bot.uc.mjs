@@ -136,9 +136,7 @@ class BrowseBotPREFS extends PREFS$1 {
   static DEBUG_MODE = "extension.browse-bot.debug-mode";
 
   static ENABLED = "extension.browse-bot.findbar-ai.enabled";
-  static MINIMAL = "extension.browse-bot.findbar-ai.minimal";
   static PERSIST = "extension.browse-bot.findbar-ai.persist-chat";
-  static POSITION = "extension.browse-bot.findbar-ai.position";
   static STREAM_ENABLED = "extension.browse-bot.findbar-ai.stream-enabled";
   static CONTEXT_MENU_ENABLED = "extension.browse-bot.findbar-ai.context-menu-enabled";
   static CONTEXT_MENU_AUTOSEND = "extension.browse-bot.findbar-ai.context-menu-autosend";
@@ -184,7 +182,6 @@ class BrowseBotPREFS extends PREFS$1 {
 
   static defaultValues = {
     [BrowseBotPREFS.ENABLED]: true,
-    [BrowseBotPREFS.MINIMAL]: true,
     [BrowseBotPREFS.DEBUG_MODE]: false,
     [BrowseBotPREFS.PERSIST]: false,
     [BrowseBotPREFS.STREAM_ENABLED]: true,
@@ -210,7 +207,6 @@ class BrowseBotPREFS extends PREFS$1 {
     [BrowseBotPREFS.CEREBRAS_MODEL]: "llama3.1-8b",
     [BrowseBotPREFS.OLLAMA_MODEL]: "llama2",
     [BrowseBotPREFS.OLLAMA_BASE_URL]: "http://localhost:11434/api",
-    [BrowseBotPREFS.POSITION]: "top-right",
     [BrowseBotPREFS.BACKGROUND_STYLE]: "solid",
     [BrowseBotPREFS.SHORTCUT_FINDBAR]: "ctrl+shift+f",
     [BrowseBotPREFS.CUSTOM_SYSTEM_PROMPT]: "",
@@ -230,9 +226,7 @@ class BrowseBotPREFS extends PREFS$1 {
   static migratePrefs() {
     const migrationMap = {
       "extension.browse-bot.enabled": this.ENABLED,
-      "extension.browse-bot.minimal": this.MINIMAL,
       "extension.browse-bot.persist-chat": this.PERSIST,
-      "extension.browse-bot.position": this.POSITION,
       "extension.browse-bot.stream-enabled": this.STREAM_ENABLED,
       "extension.browse-bot.context-menu-enabled": this.CONTEXT_MENU_ENABLED,
       "extension.browse-bot.context-menu-autosend": this.CONTEXT_MENU_AUTOSEND,
@@ -259,14 +253,6 @@ class BrowseBotPREFS extends PREFS$1 {
 
   static set enabled(value) {
     this.setPref(this.ENABLED, value);
-  }
-
-  static get minimal() {
-    return this.getPref(this.MINIMAL);
-  }
-
-  static set minimal(value) {
-    this.setPref(this.MINIMAL, value);
   }
 
   static get streamEnabled() {
@@ -356,14 +342,6 @@ class BrowseBotPREFS extends PREFS$1 {
   // static set showToolCall(value) {
   //   this.setPref(this.SHOW_TOOL_CALL, value);
   // }
-
-  static get position() {
-    return this.getPref(this.POSITION);
-  }
-
-  static set position(value) {
-    this.setPref(this.POSITION, value);
-  }
 
   static get ollamaBaseUrl() {
     return this.getPref(this.OLLAMA_BASE_URL);
@@ -1147,26 +1125,8 @@ const SettingsModal = {
     // Section 1: Findbar
     const findbarSettings = [
       { label: "Enable AI Findbar", pref: PREFS.ENABLED },
-      { label: "Minimal Mode (similar to arc)", pref: PREFS.MINIMAL },
       { label: "Persist Chat (don't persist when browser closes)", pref: PREFS.PERSIST },
     ];
-    const positionOptions = {
-      "top-left": "Top Left",
-      "top-right": "Top Right",
-      "bottom-left": "Bottom Left",
-      "bottom-right": "Bottom Right",
-    };
-    const positionOptionsHTML = Object.entries(positionOptions)
-      .map(([value, label]) => `<option value="${value}">${escapeXmlAttribute(label)}</option>`)
-      .join("");
-    const positionSelectorHtml = `
-      <div class="setting-item">
-        <label for="pref-position">Position</label>
-        <select id="pref-position" data-pref="${PREFS.POSITION}">
-          ${positionOptionsHTML}
-        </select>
-      </div>
-    `;
 
     const backgroundStyleOptions = {
       solid: "Solid",
@@ -1187,7 +1147,6 @@ const SettingsModal = {
 
     const findbarResetPrefs = [
       ...findbarSettings.map((s) => s.pref),
-      PREFS.POSITION,
       PREFS.BACKGROUND_STYLE,
     ];
     const findbarSectionHtml = this._createCheckboxSectionHtml(
@@ -1195,7 +1154,7 @@ const SettingsModal = {
       findbarSettings,
       true,
       "",
-      positionSelectorHtml + backgroundStyleSelectorHtml,
+      backgroundStyleSelectorHtml,
       findbarResetPrefs
     );
 
@@ -1478,7 +1437,7 @@ document.documentElement.style.setProperty("--browse-bot-findbar-max-width", `${
 
 const browseBotFindbar = {
   findbar: null,
-  expandButton: null,
+  askButton: null,
   chatContainer: null,
   apiKeyContainer: null,
   _updateFindbar: null,
@@ -1492,7 +1451,6 @@ const browseBotFindbar = {
   _backgroundStylesListener: null,
   _contextMenuEnabledListener: null,
   _persistListener: null,
-  _minimalListener: null,
   contextMenuItem: null,
   _matchesObserver: null,
   _highlightTimeout: null,
@@ -1565,7 +1523,7 @@ const browseBotFindbar = {
       }
       this.findbar.classList.remove("ai-expanded");
       this.removeAIInterface();
-      if (isChanged && !this.minimal) this.focusInput();
+      if (isChanged) this.focusInput();
     }
   },
 
@@ -1580,24 +1538,9 @@ const browseBotFindbar = {
     else this.destroy();
   },
 
-  get minimal() {
-    return PREFS.minimal;
-  },
-  set minimal(value) {
-    if (typeof value === "boolean") PREFS.minimal = value;
-  },
-
-  handleMinimalPrefChange: function () {
-    this.removeExpandButton();
-    this.addExpandButton();
-    this.removeAIInterface();
-    this.showAIInterface();
-    this._layoutMinimalFindbarRow();
-  },
-
   updateFindbar() {
     SettingsModal.hide();
-    this.removeExpandButton();
+    this.removeAskButton();
     this.removeAIInterface();
     if (!PREFS.persistChat) {
       this.hide();
@@ -1607,7 +1550,7 @@ const browseBotFindbar = {
     gBrowser.getFindBar().then((findbar) => {
       this.findbar = findbar;
       this._applyFindbarDimensions();
-      this.addExpandButton();
+      this.addAskButton();
       if (PREFS.persistChat) {
         if (this?.findbar?.history) {
           browseBotFindbarLLM.history = this.findbar.history;
@@ -1649,7 +1592,7 @@ const browseBotFindbar = {
    * Native DOM: wrapper, checkboxes, .found-matches are siblings under .findbar-container.
    */
   _layoutMinimalFindbarRow() {
-    if (!this.minimal || !this.findbar) return;
+    if (!this.findbar) return;
 
     const container = this.findbar.querySelector(".findbar-container");
     const wrapper = container?.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
@@ -1970,9 +1913,7 @@ const browseBotFindbar = {
     foundMatchesElement.hidden = false;
     foundMatchesElement.setAttribute("value", `${result.current}/${result.total}`);
 
-    if (PREFS.minimal) {
-      this._layoutMinimalFindbarRow();
-    }
+    this._layoutMinimalFindbarRow();
   },
 
   _toggleStreamingControls(isStreaming) {
@@ -2260,59 +2201,43 @@ const browseBotFindbar = {
     try {
       this.removeListeners();
     } catch {}
-    this.removeExpandButton();
+    this.removeAskButton();
     this.removeContextMenuItem();
     this.removeAIInterface();
     SettingsModal.hide();
     this._restoreFindbarMatchesDisplay();
   },
 
-  addExpandButton() {
+  addAskButton() {
     if (!this.findbar) return false;
 
-    // Always remove both buttons before adding the correct one
-    this.removeExpandButton();
+    this.removeAskButton();
 
-    if (this.minimal) {
-      const container = this.findbar.querySelector(".findbar-container");
-      if (container && !container.querySelector("#findbar-ask")) {
-        const askBtn = parseElement(`<button id="findbar-ask" anonid="findbar-ask">Ask</button>`);
-        askBtn.addEventListener("click", () => {
-          const inpText = this.findbar._findField.value.trim();
-          this.sendMessage(inpText);
-          this.findbar._findField.value = "";
-          this.focusInput();
-        });
-        const wrapper = container.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
-        if (wrapper) {
-          wrapper.insertAdjacentElement("afterend", askBtn);
-        } else {
-          container.appendChild(askBtn);
-        }
-        this.askButton = askBtn;
-        this._layoutMinimalFindbarRow();
+    const container = this.findbar.querySelector(".findbar-container");
+    if (container && !container.querySelector("#findbar-ask")) {
+      const askBtn = parseElement(`<button id="findbar-ask" anonid="findbar-ask">Ask</button>`);
+      askBtn.addEventListener("click", () => {
+        const inpText = this.findbar._findField.value.trim();
+        this.sendMessage(inpText);
+        this.findbar._findField.value = "";
+        this.focusInput();
+      });
+      const wrapper = container.querySelector('hbox[anonid="findbar-textbox-wrapper"]');
+      if (wrapper) {
+        wrapper.insertAdjacentElement("afterend", askBtn);
+      } else {
+        container.appendChild(askBtn);
       }
-    } else {
-      const button_id = "findbar-expand";
-      const button = parseElement(
-        `<button id="${button_id}" anonid="${button_id}">Expand</button>`
-      );
-      button.addEventListener("click", () => (this.expanded = true));
-      button.textContent = "Expand";
-      this.findbar.appendChild(button);
-      this.expandButton = button;
+      this.askButton = askBtn;
+      this._layoutMinimalFindbarRow();
     }
     return true;
   },
 
-  removeExpandButton() {
+  removeAskButton() {
     if (this.askButton) {
       this.askButton.remove();
       this.askButton = null;
-    }
-    if (this.expandButton) {
-      this.expandButton.remove();
-      this.expandButton = null;
     }
     return true;
   },
@@ -2438,7 +2363,6 @@ const browseBotFindbar = {
     this._addKeymaps = this.addKeymaps.bind(this);
     this._handleInputKeyPress = this.handleInputKeyPress.bind(this);
     const _handleContextMenuPrefChange = this.handleContextMenuPrefChange.bind(this);
-    const _handleMinimalPrefChange = this.handleMinimalPrefChange.bind(this);
     const _handleBackgroundStyleChange = () => {
       updateSidebarWidth();
     };
@@ -2453,7 +2377,6 @@ const browseBotFindbar = {
       PREFS.BACKGROUND_STYLE,
       _handleBackgroundStyleChange
     );
-    this._minimalListener = addPrefListener(PREFS.MINIMAL, _handleMinimalPrefChange);
     this._contextMenuEnabledListener = addPrefListener(
       PREFS.CONTEXT_MENU_ENABLED,
       _handleContextMenuPrefChange
@@ -2476,13 +2399,11 @@ const browseBotFindbar = {
     window.removeEventListener("findbarclose", this._handleFindbarCloseEvent);
     removePrefListener(this._backgroundStylesListener);
     removePrefListener(this._contextMenuEnabledListener);
-    removePrefListener(this._minimalListener);
     removePrefListener(this._persistListener);
     this._handleInputKeyPress = null;
     this._updateFindbar = null;
     this._addKeymaps = null;
     this._contextMenuEnabledListener = null;
-    this._minimalListener = null;
     this._handleFindbarOpenEvent = null;
     this._handleFindbarCloseEvent = null;
   },

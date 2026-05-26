@@ -9,7 +9,7 @@ A **fork** of [Vertex-Mods/Browse-Bot](https://github.com/Vertex-Mods/Browse-Bot
 
 ## Features
 
-- **Floating chat UI** on the findbar (minimal Arc-style mode + expanded chat)
+- **Arc-style findbar** — compact row with Ask button, expandable to full chat
 - **Multi-provider LLM** (Gemini, Mistral, OpenAI, Claude, Grok, Perplexity, Cerebras, Ollama)
 - **Page content awareness** — page text is sent in the system prompt for Q&A
 - **Clickable excerpt citations** — quotes from the page in `<excerpt>` blocks, click to highlight on page
@@ -33,7 +33,7 @@ A **fork** of [Vertex-Mods/Browse-Bot](https://github.com/Vertex-Mods/Browse-Bot
 ## Usage
 
 1. Configure an API key (or use Ollama locally) when prompted.
-2. `Ctrl+F` — open findbar; **Alt+Enter** or **Ask** sends to AI (minimal mode).
+2. `Ctrl+F` — open findbar; **Alt+Enter** or **Ask** sends to AI.
 3. `Ctrl+Shift+F` — open findbar directly in AI chat (configurable).
 4. Right-click — **Ask AI** / summarize (if enabled).
 
@@ -44,7 +44,6 @@ A **fork** of [Vertex-Mods/Browse-Bot](https://github.com/Vertex-Mods/Browse-Bot
 | `extension.browse-bot.findbar-ai.enabled` | `true` | Master toggle |
 | `extension.browse-bot.llm-provider` | `gemini` | AI provider |
 | `extension.browse-bot.findbar-ai.stream-enabled` | `true` | Stream replies |
-| `extension.browse-bot.findbar-ai.position` | `top-right` | Viewport corner for the findbar |
 | `extension.browse-bot.findbar-ai.shortcut-findbar` | `ctrl+shift+f` | Open AI findbar |
 
 See Sine settings or upstream README for full provider keys and findbar appearance prefs.

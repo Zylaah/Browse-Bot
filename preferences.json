@@ -758,58 +758,11 @@
     ]
   },
   {
-    "property": "extension.browse-bot.findbar-ai.minimal",
-    "label": "Enable Minimal Mode (Arc-style)",
-    "type": "checkbox",
-    "defaultValue": true,
-    "conditions": [
-      {
-        "if": {
-          "property": "extension.browse-bot.findbar-ai.enabled",
-          "value": true
-        }
-      }
-    ]
-  },
-  {
     "property": "extension.browse-bot.findbar-ai.persist-chat",
     "label": "Persist Chat History per Tab",
     "type": "checkbox",
     "defaultValue": false,
     "description": "Saves the chat history for each tab. History is lost when the browser is closed.",
-    "conditions": [
-      {
-        "if": {
-          "property": "extension.browse-bot.findbar-ai.enabled",
-          "value": true
-        }
-      }
-    ]
-  },
-  {
-    "property": "extension.browse-bot.findbar-ai.position",
-    "label": "Corner Position",
-    "type": "dropdown",
-    "defaultValue": "top-right",
-    "description": "The viewport corner where the findbar is anchored.",
-    "options": [
-      {
-        "value": "top-left",
-        "label": "Top Left"
-      },
-      {
-        "value": "top-right",
-        "label": "Top Right"
-      },
-      {
-        "value": "bottom-left",
-        "label": "Bottom Left"
-      },
-      {
-        "value": "bottom-right",
-        "label": "Bottom Right"
-      }
-    ],
     "conditions": [
       {
         "if": {
