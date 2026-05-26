@@ -1903,10 +1903,18 @@ const browseBotFindbar = {
     if (!prompt || this._isStreaming) return;
 
     this.show();
-    this.expanded = true;
+    if (!this.expanded) {
+      this.expanded = true;
+    } else if (!this.chatContainer) {
+      this.showAIInterface();
+    }
 
     this.addChatMessage({ role: "user", content: prompt });
-    const messagesContainer = this.chatContainer.querySelector("#chat-messages");
+    const messagesContainer = this.chatContainer?.querySelector("#chat-messages");
+    if (!messagesContainer) {
+      PREFS.debugError("Chat UI is unavailable.");
+      return;
+    }
 
     this._abortController = new AbortController();
     this._toggleStreamingControls(true);
@@ -1964,6 +1972,10 @@ const browseBotFindbar = {
         }
         if (fullText.trim() === "") {
           aiMessageDiv.remove();
+          this.addChatMessage({
+            role: "error",
+            content: "**Error**: The model returned an empty response. Check your API key, model, and page size.",
+          });
         }
       }
     } catch (e) {
@@ -2682,7 +2694,13 @@ class BrowseBotLLM {
   formatPageContextBlock(pageContext) {
     const url = escapeXmlAttribute(pageContext.url ?? "");
     const title = escapeXmlAttribute(pageContext.title ?? "");
-    const content = String(pageContext.textContent ?? pageContext.content ?? "");
+    const maxContentChars = 120000;
+    let content = String(pageContext.textContent ?? pageContext.content ?? "");
+    if (content.length > maxContentChars) {
+      content =
+        content.slice(0, maxContentChars) +
+        "\n\n[Page content truncated due to length. Answer using the content above.]";
+    }
     const currentDate = new Date().toLocaleString(this.getUserLocale());
 
     return `<url>${url}</url>

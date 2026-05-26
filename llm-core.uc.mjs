@@ -107,29 +107,33 @@ function escapeHtml(text) {
 }
 
 const EXCERPT_TAG_RE = /<excerpt>([\s\S]*?)<\/excerpt>/gi;
-const INCOMPLETE_EXCERPT_RE = /<excerpt>[\s\S]*$/i;
-
-/**
- * Strip trailing unclosed excerpt tag (common while streaming).
- * @param {string} markdown
- */
-function stripIncompleteExcerpt(markdown) {
-  return markdown.replace(INCOMPLETE_EXCERPT_RE, "");
-}
+const INCOMPLETE_EXCERPT_RE = /<excerpt>([\s\S]*)$/i;
 
 /**
  * Replace excerpt blocks with placeholders before markdown parsing.
+ * Incomplete trailing excerpts are kept visible while streaming.
  * @param {string} markdown
- * @returns {{ markdown: string, excerpts: string[] }}
+ * @returns {{ markdown: string, excerpts: string[], streamingExcerptIndex: number|null }}
  */
 function extractExcerptPlaceholders(markdown) {
   const excerpts = [];
-  const withoutExcerpts = markdown.replace(EXCERPT_TAG_RE, (_match, inner) => {
+  EXCERPT_TAG_RE.lastIndex = 0;
+
+  let processed = markdown.replace(EXCERPT_TAG_RE, (_match, inner) => {
     const index = excerpts.length;
     excerpts.push(String(inner).trim());
     return `\n\n%%EXCERPT_${index}%%\n\n`;
   });
-  return { markdown: withoutExcerpts, excerpts };
+
+  let streamingExcerptIndex = null;
+  processed = processed.replace(INCOMPLETE_EXCERPT_RE, (_match, inner) => {
+    const index = excerpts.length;
+    excerpts.push(String(inner).trim());
+    streamingExcerptIndex = index;
+    return `\n\n%%EXCERPT_${index}%%\n\n`;
+  });
+
+  return { markdown: processed, excerpts, streamingExcerptIndex };
 }
 
 /**
@@ -151,9 +155,10 @@ function excerptQuotePlainText(text) {
  * Turn excerpt placeholders into clickable citation blocks.
  * @param {string} html
  * @param {string[]} excerpts
+ * @param {number|null} streamingExcerptIndex
  * @param {typeof marked | null} marked
  */
-function injectExcerptBlocks(html, excerpts, marked) {
+function injectExcerptBlocks(html, excerpts, streamingExcerptIndex, marked) {
   return html.replace(/%%EXCERPT_(\d+)%%/g, (_match, indexStr) => {
     const index = Number.parseInt(indexStr, 10);
     const source = excerpts[index];
@@ -169,9 +174,13 @@ function injectExcerptBlocks(html, excerpts, marked) {
     }
 
     const quote = excerptQuotePlainText(source);
-    if (!quote) return innerHtml;
+    const isStreaming = streamingExcerptIndex === index;
+    const streamingClass = isStreaming ? " page-excerpt-streaming" : "";
+    const attrs = quote
+      ? ` data-excerpt-quote="${escapeHtml(quote)}" tabindex="0" role="button" title="Highlight on page"`
+      : ` tabindex="-1" aria-busy="true"`;
 
-    return `<blockquote class="page-excerpt" data-excerpt-quote="${escapeHtml(quote)}" tabindex="0" role="button" title="Highlight on page">${innerHtml}</blockquote>`;
+    return `<blockquote class="page-excerpt${streamingClass}"${attrs}>${innerHtml}</blockquote>`;
   });
 }
 
@@ -222,10 +231,9 @@ export function renderMarkdownToElement(text, element) {
 
   if (markedLib && DOMPurifyLib) {
     try {
-      const stableText = stripIncompleteExcerpt(text);
-      const { markdown, excerpts } = extractExcerptPlaceholders(stableText);
+      const { markdown, excerpts, streamingExcerptIndex } = extractExcerptPlaceholders(text);
       const rawHtml = markedLib.parse(markdown, { gfm: true, breaks: false });
-      const withExcerpts = injectExcerptBlocks(rawHtml, excerpts, markedLib);
+      const withExcerpts = injectExcerptBlocks(rawHtml, excerpts, streamingExcerptIndex, markedLib);
       const withCitations = withExcerpts.replace(
         /\[(\d+)\](?!\()/g,
         '<span class="citation-link" data-citation-id="$1">[$1]</span>'
@@ -236,7 +244,7 @@ export function renderMarkdownToElement(text, element) {
         .replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
       const sanitized = DOMPurifyLib.sanitize(withClasses.trim(), {
         ALLOWED_URI_REGEXP: /^https?:\/\//i,
-        ADD_ATTR: ["target", "rel", "data-citation-id", "data-excerpt-quote", "tabindex", "role", "title", "class"],
+        ADD_ATTR: ["target", "rel", "data-citation-id", "data-excerpt-quote", "tabindex", "role", "title", "aria-busy", "class"],
       });
       setElementHtmlFromMarkup(element, sanitized.trim());
       return;
@@ -498,6 +506,51 @@ export function formatLlmError(error) {
 }
 
 /**
+ * @param {string} data
+ * @returns {{ done?: boolean, text?: string }}
+ */
+function parseOpenAiSseData(data) {
+  if (data === "[DONE]") return { done: true };
+
+  const json = JSON.parse(data);
+  if (json.error) {
+    const message =
+      json.error.message ||
+      json.error.status ||
+      (typeof json.error === "string" ? json.error : JSON.stringify(json.error));
+    throw new Error(`API error: ${message}`);
+  }
+
+  const text =
+    json.choices?.[0]?.delta?.content ??
+    json.choices?.[0]?.message?.content ??
+    json.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  return { text: text || undefined };
+}
+
+/**
+ * @param {string} buffer
+ */
+function throwIfJsonErrorBody(buffer) {
+  const trimmed = buffer.trim();
+  if (!trimmed.startsWith("{")) return;
+
+  try {
+    const json = JSON.parse(trimmed);
+    if (json.error) {
+      const message =
+        json.error.message ||
+        json.error.status ||
+        (typeof json.error === "string" ? json.error : JSON.stringify(json.error));
+      throw new Error(`API error: ${message}`);
+    }
+  } catch (err) {
+    if (err.message?.startsWith("API error:")) throw err;
+  }
+}
+
+/**
  * Stream chat completion; yields text deltas.
  * @param {object} provider
  * @param {Array} messages
@@ -520,10 +573,15 @@ export async function* streamChatText(provider, messages, signal, sampling = {})
     signal
   );
 
+  if (!response.body) {
+    throw new Error("API error: empty streaming response body");
+  }
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   const isOllama = provider.kind === "ollama";
+  let yieldedAny = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -539,25 +597,36 @@ export async function* streamChatText(provider, messages, signal, sampling = {})
 
       if (trimmed.startsWith("data: ")) {
         const data = trimmed.slice(6);
-        if (data === "[DONE]") return;
         try {
-          const json = JSON.parse(data);
-          const text = json.choices?.[0]?.delta?.content;
-          if (text) yield text;
-        } catch {
-          /* ignore */
+          const parsed = parseOpenAiSseData(data);
+          if (parsed.done) return;
+          if (parsed.text) {
+            yieldedAny = true;
+            yield parsed.text;
+          }
+        } catch (err) {
+          if (err.message?.startsWith("API error:")) throw err;
         }
       } else if (isOllama) {
         try {
           const json = JSON.parse(trimmed);
           const text = json.message?.content;
-          if (text) yield text;
+          if (text) {
+            yieldedAny = true;
+            yield text;
+          }
           if (json.done) return;
         } catch {
           /* ignore */
         }
+      } else {
+        throwIfJsonErrorBody(trimmed);
       }
     }
+  }
+
+  if (!yieldedAny) {
+    throwIfJsonErrorBody(buffer);
   }
 }
 

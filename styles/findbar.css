@@ -743,6 +743,11 @@ browser {
         outline: none;
       }
 
+      &.page-excerpt-streaming {
+        cursor: progress;
+        opacity: 0.92;
+      }
+
       p:last-child {
         margin-bottom: 0;
       }
