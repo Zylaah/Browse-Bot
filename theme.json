@@ -1,6 +1,6 @@
 {
-  "id": "browse-bot",
-  "homepage": "https://github.com/Vertex-Mods/Browse-Bot",
+  "id": "ask-on-page",
+  "homepage": "https://github.com/Zylaah/Ask-On-Page",
   "name": "Ask On Page",
   "description": "Findbar-only AI chat for Zen Browser — page-aware Q&A on the current tab. No URL bar AI or agentic browser tools.",
   "author": "Zylaah",
@@ -24,6 +24,6 @@
       ]
     }
   },
-  "readme": "https://raw.githubusercontent.com/Vertex-Mods/Browse-Bot/main/README.md",
+  "readme": "https://github.com/Zylaah/Ask-On-Page/blob/findbar-only/README.md",
   "createdAt": "2024-05-22"
 }
