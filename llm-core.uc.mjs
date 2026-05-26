@@ -106,6 +106,75 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+const EXCERPT_TAG_RE = /<excerpt>([\s\S]*?)<\/excerpt>/gi;
+const INCOMPLETE_EXCERPT_RE = /<excerpt>[\s\S]*$/i;
+
+/**
+ * Strip trailing unclosed excerpt tag (common while streaming).
+ * @param {string} markdown
+ */
+function stripIncompleteExcerpt(markdown) {
+  return markdown.replace(INCOMPLETE_EXCERPT_RE, "");
+}
+
+/**
+ * Replace excerpt blocks with placeholders before markdown parsing.
+ * @param {string} markdown
+ * @returns {{ markdown: string, excerpts: string[] }}
+ */
+function extractExcerptPlaceholders(markdown) {
+  const excerpts = [];
+  const withoutExcerpts = markdown.replace(EXCERPT_TAG_RE, (_match, inner) => {
+    const index = excerpts.length;
+    excerpts.push(String(inner).trim());
+    return `\n\n%%EXCERPT_${index}%%\n\n`;
+  });
+  return { markdown: withoutExcerpts, excerpts };
+}
+
+/**
+ * Plain text for find-in-page highlighting (strip common markdown syntax).
+ * @param {string} text
+ */
+function excerptQuotePlainText(text) {
+  return String(text)
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#+\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Turn excerpt placeholders into clickable citation blocks.
+ * @param {string} html
+ * @param {string[]} excerpts
+ * @param {typeof marked | null} marked
+ */
+function injectExcerptBlocks(html, excerpts, marked) {
+  return html.replace(/%%EXCERPT_(\d+)%%/g, (_match, indexStr) => {
+    const index = Number.parseInt(indexStr, 10);
+    const source = excerpts[index];
+    if (source === undefined) return "";
+
+    let innerHtml = escapeHtml(source);
+    if (marked) {
+      try {
+        innerHtml = marked.parse(source, { gfm: true, breaks: false });
+      } catch {
+        innerHtml = escapeHtml(source);
+      }
+    }
+
+    const quote = excerptQuotePlainText(source);
+    if (!quote) return innerHtml;
+
+    return `<blockquote class="page-excerpt" data-excerpt-quote="${escapeHtml(quote)}" tabindex="0" role="button" title="Highlight on page">${innerHtml}</blockquote>`;
+  });
+}
+
 /**
  * Insert HTML via DOMParser (safe in XUL — avoids innerHTML XML errors on br/hr).
  * @param {HTMLElement} element
@@ -153,8 +222,11 @@ export function renderMarkdownToElement(text, element) {
 
   if (markedLib && DOMPurifyLib) {
     try {
-      const rawHtml = markedLib.parse(text, { gfm: true, breaks: false });
-      const withCitations = rawHtml.replace(
+      const stableText = stripIncompleteExcerpt(text);
+      const { markdown, excerpts } = extractExcerptPlaceholders(stableText);
+      const rawHtml = markedLib.parse(markdown, { gfm: true, breaks: false });
+      const withExcerpts = injectExcerptBlocks(rawHtml, excerpts, markedLib);
+      const withCitations = withExcerpts.replace(
         /\[(\d+)\](?!\()/g,
         '<span class="citation-link" data-citation-id="$1">[$1]</span>'
       );
@@ -164,7 +236,7 @@ export function renderMarkdownToElement(text, element) {
         .replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
       const sanitized = DOMPurifyLib.sanitize(withClasses.trim(), {
         ALLOWED_URI_REGEXP: /^https?:\/\//i,
-        ADD_ATTR: ["target", "rel", "data-citation-id", "class"],
+        ADD_ATTR: ["target", "rel", "data-citation-id", "data-excerpt-quote", "tabindex", "role", "title", "class"],
       });
       setElementHtmlFromMarkup(element, sanitized.trim());
       return;

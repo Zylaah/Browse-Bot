@@ -1928,7 +1928,7 @@ const browseBotFindbar = {
     try {
       const resultPromise = browseBotFindbarLLM.sendMessage(prompt, this._abortController.signal);
 
-      if (PREFS.citationsEnabled || !PREFS.streamEnabled) {
+      if (!PREFS.streamEnabled) {
         const loadingIndicator = this.createLoadingIndicator();
         messagesContainer.appendChild(loadingIndicator);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1937,18 +1937,10 @@ const browseBotFindbar = {
           const result = await resultPromise;
           if (loadingIndicator.parentNode) loadingIndicator.remove();
 
-          if (PREFS.citationsEnabled) {
-            const { answer, citations } = result;
-            if (citations && citations.length > 0) {
-              aiMessageDiv.dataset.citations = JSON.stringify(citations);
-            }
-            renderMarkdown(answer, contentDiv);
+          if (result.text.trim() === "") {
+            aiMessageDiv.remove();
           } else {
-            if (result.text.trim() === "") {
-              aiMessageDiv.remove();
-            } else {
-              renderMarkdown(result.text, contentDiv);
-            }
+            renderMarkdown(result.text, contentDiv);
           }
         } finally {
           if (loadingIndicator.parentNode) loadingIndicator.remove();
@@ -2182,7 +2174,27 @@ const browseBotFindbar = {
       }
     });
 
+    chatMessages.addEventListener("keydown", (e) => {
+      const excerptEl = e.target.closest(".page-excerpt");
+      if (!excerptEl || e.target.closest("a")) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        const quote = excerptEl.dataset.excerptQuote;
+        if (quote) this.highlight(quote);
+      }
+    });
+
     chatMessages.addEventListener("click", async (e) => {
+      const excerptEl = e.target.closest(".page-excerpt");
+      if (excerptEl && !e.target.closest("a")) {
+        const quote = excerptEl.dataset.excerptQuote;
+        if (quote) {
+          PREFS.debugLog("Excerpt clicked. Requesting highlight for:", quote);
+          this.highlight(quote);
+        }
+        return;
+      }
+
       if (e.target.classList.contains("citation-link")) {
         const button = e.target;
         const citationId = button.dataset.citationId;
@@ -2659,6 +2671,64 @@ class BrowseBotLLM {
     return resolveProvider(PREFS.llmProvider || "gemini", PREFS);
   }
 
+  getUserLocale() {
+    try {
+      return Services.locale.appLocaleAsBCP47 || navigator.language || "en";
+    } catch {
+      return navigator.language || "en";
+    }
+  }
+
+  formatPageContextBlock(pageContext) {
+    const url = escapeXmlAttribute(pageContext.url ?? "");
+    const title = escapeXmlAttribute(pageContext.title ?? "");
+    const content = String(pageContext.textContent ?? pageContext.content ?? "");
+    const currentDate = new Date().toLocaleString(this.getUserLocale());
+
+    return `<url>${url}</url>
+<current-date>${escapeXmlAttribute(currentDate)}</current-date>
+<title>${title}</title>
+<content>
+${content}
+</content>`;
+  }
+
+  buildAskOnPagePrompt(locale, pageContextBlock) {
+    return `You will be acting as a research assistant. I will give you the content of a webpage, and you will concisely answer questions from a human using information from that page. You will provide citations for all answers using <excerpt> tags.
+
+RULES:
+1. Stay in your role throughout the dialogue.
+2. When asked a question, decide if you can answer based on information on the page. If the page answers the question, directly quote the relevant sentence on the page using an <excerpt> tag on its own line. Then, summarize the answer in 10 words on the next line.
+3. <excerpt> tags must be on their own line, not inline.
+4. If you can't provide a direct quote to support your answer, make it clear that it's just a guess.
+5. Use Markdown, not HTML, to format your answer. Always **bold** the term that answers the question.
+6. Be extremely concise. (1-sentence answers if possible).
+7. Respond in ${locale}. Keep <excerpt> quotes in the original language of the page text when it differs from ${locale}, but write your summaries and explanations in ${locale}.
+8. You may perform translations, summaries or other textual transformations for the user if asked.
+
+EXAMPLES OF RESPONSES FOR A HYPOTHETICAL WEBPAGE:
+> Why do people work in solar?
+According to J.W. Peters, president of Solar Power of Oklahoma:
+<excerpt>The environmental benefits are nice," he said, "but most people are doing this for the financial opportunity.</excerpt>
+So, mostly **financial, not environmental, reasons**.
+(Notice how the answer provides a direct quote from the page, on its own line, and the key answer is bold.)
+
+> What's the most populous borough in NYC?
+I think it's **Brooklyn**, but it's not mentioned on the page.
+(Notice how it is clear that the answer comes from background knowledge, not the webpage.)
+
+> privacy policy
+According to the page:
+<excerpt>[Privacy Policy](https://arc.net/privacy/#arc-max</excerpt>
+(Notice how the answer is provided by the excerpt, in Markdown.)
+
+> summary
+(You would provide a brief summary)
+
+WEBPAGE CONTEXT FOR OUR DIALOGUE:
+${pageContextBlock}`;
+  }
+
   async getSystemPrompt() {
     let systemPrompt = "";
 
@@ -2666,30 +2736,11 @@ class BrowseBotLLM {
       systemPrompt = PREFS.customSystemPrompt + "\n\n";
     }
 
-    systemPrompt += `You are a helpful AI assistant integrated into Zen Browser, a minimal and modern fork of Firefox. Your primary purpose is to answer user questions based on the content of the current webpage.
+    const pageContext = await messageManagerAPI.getPageTextContent(false);
+    const pageContextBlock = this.formatPageContextBlock(pageContext);
+    const locale = this.getUserLocale();
 
-## Your Instructions:
-- Be concise, accurate, and helpful.`;
-
-    if (this.citationsEnabled) {
-      systemPrompt += `
-
-## Citation Instructions
-- **Output Format**: Your entire response **MUST** be a single, valid JSON object with two keys: \`"answer"\` and \`"citations"\`.
-- **Answer**: The \`"answer"\` key holds the conversational text. Use Markdown Syntax for formatting.
-- **Citations**: The \`"citations"\` key holds an array of citation objects with \`id\` and \`source_quote\` (verbatim from the page).
-- **How to Cite**: In your \`"answer"\`, append markers like \`[1]\`, \`[2]\`.
-`;
-    }
-
-    systemPrompt += `
-- Strictly base all your answers on the webpage content provided below.
-- If the user's question cannot be answered from the content, state that the information is not available on the page.
-
-Here is the initial info about the current page:
-`;
-    const pageContext = await messageManagerAPI.getPageTextContent(!this.citationsEnabled);
-    systemPrompt += JSON.stringify(pageContext);
+    systemPrompt += this.buildAskOnPagePrompt(locale, pageContextBlock);
     return systemPrompt;
   }
 
@@ -2738,16 +2789,6 @@ Here is the initial info about the current page:
     const systemPrompt = await this.getSystemPrompt();
     const messages = buildChatMessages(systemPrompt, this.history);
     const sampling = this.getSampling();
-
-    if (this.citationsEnabled) {
-      const raw = await completeChatText(provider, messages, abortSignal, sampling);
-      const parsed = this.parseModelResponseText(raw);
-      this.history.push({ role: "assistant", content: JSON.stringify(parsed) });
-      if (browseBotFindbar?.findbar) {
-        browseBotFindbar.findbar.history = this.getHistory();
-      }
-      return parsed;
-    }
 
     if (this.streamEnabled) {
       const self = this;

@@ -727,6 +727,27 @@ browser {
       background: color-mix(in srgb, var(--browse-bot-primary-bg) 40%, transparent 60%) !important;
     }
 
+    .page-excerpt {
+      border-left: 3px solid var(--browser-primary-color) !important;
+      background: color-mix(in srgb, var(--browser-primary-color) 14%, transparent 86%) !important;
+      padding: 8px 12px !important;
+      margin: 8px 0 !important;
+      cursor: pointer;
+      border-radius: 0 6px 6px 0;
+      color: inherit !important;
+      transition: background 0.15s ease;
+
+      &:hover,
+      &:focus-visible {
+        background: color-mix(in srgb, var(--browser-primary-color) 24%, transparent 76%) !important;
+        outline: none;
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+    }
+
     .tool-calls-container {
       display: flex;
       flex-direction: column;
