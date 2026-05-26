@@ -12,8 +12,8 @@ A **fork** of [Vertex-Mods/Browse-Bot](https://github.com/Vertex-Mods/Browse-Bot
 - **Floating chat UI** on the findbar (minimal Arc-style mode + expanded chat)
 - **Multi-provider LLM** (Gemini, Mistral, OpenAI, Claude, Grok, Perplexity, Cerebras, Ollama)
 - **Page content awareness** — page text is sent in the system prompt for Q&A
-- **Optional citations** (structured quotes from the page)
-- **Streaming responses** via direct API `fetch` (same pattern as [urlbar-ai](https://github.com/Zylaah/urlbar-ai)), with **marked.js** + **DOMPurify** for markdown
+- **Clickable excerpt citations** — quotes from the page in `<excerpt>` blocks, click to highlight on page
+- **Streaming responses** via direct API `fetch`, with **marked.js** + **DOMPurify** for markdown
 - **Context menu** — Ask AI / summarize with selection templates
 - **Zen Command Palette** — Summarize page, expand findbar, open settings
 - **Customizable** via Sine settings or `about:config`
@@ -44,7 +44,7 @@ A **fork** of [Vertex-Mods/Browse-Bot](https://github.com/Vertex-Mods/Browse-Bot
 | `extension.browse-bot.findbar-ai.enabled` | `true` | Master toggle |
 | `extension.browse-bot.llm-provider` | `gemini` | AI provider |
 | `extension.browse-bot.findbar-ai.stream-enabled` | `true` | Stream replies |
-| `extension.browse-bot.findbar-ai.citations-enabled` | `false` | Quote-based citations (incompatible with streaming) |
+| `extension.browse-bot.findbar-ai.position` | `top-right` | Viewport corner for the findbar |
 | `extension.browse-bot.findbar-ai.shortcut-findbar` | `ctrl+shift+f` | Open AI findbar |
 
 See Sine settings or upstream README for full provider keys and findbar appearance prefs.

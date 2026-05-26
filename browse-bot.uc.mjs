@@ -138,12 +138,8 @@ class BrowseBotPREFS extends PREFS$1 {
   static ENABLED = "extension.browse-bot.findbar-ai.enabled";
   static MINIMAL = "extension.browse-bot.findbar-ai.minimal";
   static PERSIST = "extension.browse-bot.findbar-ai.persist-chat";
-  static DND_ENABLED = "extension.browse-bot.findbar-ai.dnd-enabled";
   static POSITION = "extension.browse-bot.findbar-ai.position";
-  static REMEMBER_DIMENSIONS = "extension.browse-bot.findbar-ai.remember-dimensions";
-  static WIDTH = "extension.browse-bot.findbar-ai.width";
   static STREAM_ENABLED = "extension.browse-bot.findbar-ai.stream-enabled";
-  static CITATIONS_ENABLED = "extension.browse-bot.findbar-ai.citations-enabled";
   static CONTEXT_MENU_ENABLED = "extension.browse-bot.findbar-ai.context-menu-enabled";
   static CONTEXT_MENU_AUTOSEND = "extension.browse-bot.findbar-ai.context-menu-autosend";
   static CONTEXT_MENU_COMMAND_WITH_SELECTION =
@@ -192,7 +188,6 @@ class BrowseBotPREFS extends PREFS$1 {
     [BrowseBotPREFS.DEBUG_MODE]: false,
     [BrowseBotPREFS.PERSIST]: false,
     [BrowseBotPREFS.STREAM_ENABLED]: true,
-    [BrowseBotPREFS.CITATIONS_ENABLED]: false,
     [BrowseBotPREFS.CONTEXT_MENU_ENABLED]: true,
     [BrowseBotPREFS.CONTEXT_MENU_AUTOSEND]: true,
     [BrowseBotPREFS.CONTEXT_MENU_COMMAND_NO_SELECTION]: "Summarize current page",
@@ -215,10 +210,7 @@ class BrowseBotPREFS extends PREFS$1 {
     [BrowseBotPREFS.CEREBRAS_MODEL]: "llama3.1-8b",
     [BrowseBotPREFS.OLLAMA_MODEL]: "llama2",
     [BrowseBotPREFS.OLLAMA_BASE_URL]: "http://localhost:11434/api",
-    [BrowseBotPREFS.DND_ENABLED]: false,
     [BrowseBotPREFS.POSITION]: "top-right",
-    [BrowseBotPREFS.REMEMBER_DIMENSIONS]: false,
-    [BrowseBotPREFS.WIDTH]: FINDBAR_WIDTH,
     [BrowseBotPREFS.BACKGROUND_STYLE]: "solid",
     [BrowseBotPREFS.SHORTCUT_FINDBAR]: "ctrl+shift+f",
     [BrowseBotPREFS.CUSTOM_SYSTEM_PROMPT]: "",
@@ -233,7 +225,6 @@ class BrowseBotPREFS extends PREFS$1 {
   setInitialPrefs() {
     this.migratePrefs();
     super.setInitialPrefs();
-    this.setPref(this.WIDTH, FINDBAR_WIDTH);
   }
 
   static migratePrefs() {
@@ -241,10 +232,8 @@ class BrowseBotPREFS extends PREFS$1 {
       "extension.browse-bot.enabled": this.ENABLED,
       "extension.browse-bot.minimal": this.MINIMAL,
       "extension.browse-bot.persist-chat": this.PERSIST,
-      "extension.browse-bot.dnd-enabled": this.DND_ENABLED,
       "extension.browse-bot.position": this.POSITION,
       "extension.browse-bot.stream-enabled": this.STREAM_ENABLED,
-      "extension.browse-bot.citations-enabled": this.CITATIONS_ENABLED,
       "extension.browse-bot.context-menu-enabled": this.CONTEXT_MENU_ENABLED,
       "extension.browse-bot.context-menu-autosend": this.CONTEXT_MENU_AUTOSEND,
     };
@@ -286,14 +275,6 @@ class BrowseBotPREFS extends PREFS$1 {
 
   static set streamEnabled(value) {
     this.setPref(this.STREAM_ENABLED, value);
-  }
-
-  static get citationsEnabled() {
-    return this.getPref(this.CITATIONS_ENABLED);
-  }
-
-  static set citationsEnabled(value) {
-    this.setPref(this.CITATIONS_ENABLED, value);
   }
 
   static get contextMenuEnabled() {
@@ -376,36 +357,12 @@ class BrowseBotPREFS extends PREFS$1 {
   //   this.setPref(this.SHOW_TOOL_CALL, value);
   // }
 
-  static get dndEnabled() {
-    return this.getPref(this.DND_ENABLED);
-  }
-
-  static set dndEnabled(value) {
-    this.setPref(this.DND_ENABLED, value);
-  }
-
   static get position() {
     return this.getPref(this.POSITION);
   }
 
   static set position(value) {
     this.setPref(this.POSITION, value);
-  }
-
-  static get rememberDimensions() {
-    return this.getPref(this.REMEMBER_DIMENSIONS);
-  }
-
-  static set rememberDimensions(value) {
-    this.setPref(this.REMEMBER_DIMENSIONS, value);
-  }
-
-  static get width() {
-    return this.getPref(this.WIDTH);
-  }
-
-  static set width(value) {
-    this.setPref(this.WIDTH, value);
   }
 
   static get ollamaBaseUrl() {
@@ -1262,15 +1219,7 @@ const SettingsModal = {
     `;
 
     // Section 3: AI Behavior
-    const aiBehaviorSettings = [
-      { label: "Enable Citations", pref: PREFS.CITATIONS_ENABLED },
-      { label: "Stream Response", pref: PREFS.STREAM_ENABLED },
-    ];
-    const aiBehaviorWarningHtml = `
-      <div id="citations-stream-warning" class="warning-message">
-        Citations and streaming cannot be enabled at the same time.
-      </div>
-    `;
+    const aiBehaviorSettings = [{ label: "Stream Response", pref: PREFS.STREAM_ENABLED }];
     const customSystemPromptHtml = `
    <div class="setting-item">
      <label for="pref-custom-system-prompt">Custom System Prompt</label>
@@ -1286,7 +1235,7 @@ const SettingsModal = {
       "AI Behavior",
       aiBehaviorSettings,
       true,
-      aiBehaviorWarningHtml,
+      "",
       customSystemPromptHtml,
       aiBehaviorResetPrefs
     );
@@ -1541,7 +1490,6 @@ const browseBotFindbar = {
   _isExpanded: false,
   _updateContextMenuText: null,
   _backgroundStylesListener: null,
-  _citationsListener: null,
   _contextMenuEnabledListener: null,
   _persistListener: null,
   _minimalListener: null,
@@ -1662,15 +1610,7 @@ const browseBotFindbar = {
       this.addExpandButton();
       if (PREFS.persistChat) {
         if (this?.findbar?.history) {
-          browseBotFindbarLLM.history = this.findbar.history; // restore history from findbar
-          if (
-            this?.findbar?.aiStatus &&
-            JSON.stringify(this.aiStatus) !== JSON.stringify(this.findbar.aiStatus) // check status saved in findabr
-          ) {
-            // clear history if ai stauts is changed
-            browseBotFindbarLLM.history = [];
-            this.findbar.history = [];
-          }
+          browseBotFindbarLLM.history = this.findbar.history;
         } else browseBotFindbarLLM.history = [];
         if (this?.findbar?.expanded && !this?.findbar?.hidden) {
           setTimeout(() => (this.expanded = true), 200);
@@ -1682,7 +1622,6 @@ const browseBotFindbar = {
         this.hide();
         this.expanded = false;
       }
-      this.updateFindbarStatus();
       setTimeout(() => this._updateFindbarDimensions(), 0);
 
       const matches = this.findbar.querySelector(".found-matches");
@@ -1777,16 +1716,6 @@ const browseBotFindbar = {
     const messages = this?.chatContainer?.querySelector("#chat-messages");
     if (messages) messages.innerHTML = "";
     setTimeout(() => this._updateFindbarDimensions(), 1);
-  },
-
-  aiStatus: {
-    citationsEnabled: PREFS.citationsEnabled,
-  },
-  updateFindbarStatus() {
-    this.aiStatus = {
-      citationsEnabled: PREFS.citationsEnabled,
-    };
-    if (this.findbar) this.findbar.aiStatus = this.aiStatus;
   },
 
   createAPIKeyInterface() {
@@ -2207,23 +2136,7 @@ const browseBotFindbar = {
         return;
       }
 
-      if (e.target.classList.contains("citation-link")) {
-        const button = e.target;
-        const citationId = button.dataset.citationId;
-        const messageEl = button.closest(".chat-message[data-citations]");
-
-        if (messageEl) {
-          const citations = JSON.parse(messageEl.dataset.citations);
-          const citation = citations.find((c) => c.id == citationId);
-          if (citation && citation.source_quote) {
-            PREFS.debugLog(
-              `Citation [${citationId}] clicked. Requesting highlight for:`,
-              citation.source_quote
-            );
-            this.highlight(citation.source_quote);
-          }
-        }
-      } else if (e.target?.href) {
+      if (e.target?.href) {
         e.preventDefault();
         try {
           openTrustedLinkIn(e.target.href, "tab");
@@ -2265,31 +2178,9 @@ const browseBotFindbar = {
 
     const messageDiv = parseElement(`<div class="chat-message chat-message-${type}"></div>`);
     const contentDiv = parseElement(`<div class="message-content markdown-body"></div>`);
-
-    if (role === "assistant" && typeof content === "object" && content.answer !== undefined) {
-      // Case 1: Live citation-mode response { answer, citations }
-      const { answer, citations } = content;
-      if (citations && citations.length > 0) {
-        messageDiv.dataset.citations = JSON.stringify(citations);
-      }
-      renderMarkdown(answer, contentDiv);
-    } else {
-      // Case 2: String content (from user, stream, completion, or history)
-      const textContent = typeof content === "string" ? content : (content[0]?.text ?? "");
-
-      if (role === "assistant" && PREFS.citationsEnabled) {
-        // Sub-case: Rendering historical assistant message in citation mode.
-        // It's a string that needs to be parsed into answer/citations.
-        const { answer, citations } = browseBotFindbarLLM.parseModelResponseText(textContent);
-        if (citations && citations.length > 0) {
-          messageDiv.dataset.citations = JSON.stringify(citations);
-        }
-        renderMarkdown(answer, contentDiv);
-      } else {
-        // Sub-case: Simple string content
-        renderMarkdown(textContent, contentDiv);
-      }
-    }
+    const textContent =
+      typeof content === "string" ? content : (content?.answer ?? content?.[0]?.text ?? "");
+    renderMarkdown(textContent, contentDiv);
 
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
@@ -2546,10 +2437,6 @@ const browseBotFindbar = {
     this._updateFindbar = this.updateFindbar.bind(this);
     this._addKeymaps = this.addKeymaps.bind(this);
     this._handleInputKeyPress = this.handleInputKeyPress.bind(this);
-    const _clearLLMData = () => {
-      this.updateFindbarStatus();
-      this.clear();
-    };
     const _handleContextMenuPrefChange = this.handleContextMenuPrefChange.bind(this);
     const _handleMinimalPrefChange = this.handleMinimalPrefChange.bind(this);
     const _handleBackgroundStyleChange = () => {
@@ -2566,7 +2453,6 @@ const browseBotFindbar = {
       PREFS.BACKGROUND_STYLE,
       _handleBackgroundStyleChange
     );
-    this._citationsListener = addPrefListener(PREFS.CITATIONS_ENABLED, _clearLLMData);
     this._minimalListener = addPrefListener(PREFS.MINIMAL, _handleMinimalPrefChange);
     this._contextMenuEnabledListener = addPrefListener(
       PREFS.CONTEXT_MENU_ENABLED,
@@ -2589,14 +2475,12 @@ const browseBotFindbar = {
     window.removeEventListener("findbaropen", this._handleFindbarOpenEvent);
     window.removeEventListener("findbarclose", this._handleFindbarCloseEvent);
     removePrefListener(this._backgroundStylesListener);
-    removePrefListener(this._citationsListener);
     removePrefListener(this._contextMenuEnabledListener);
     removePrefListener(this._minimalListener);
     removePrefListener(this._persistListener);
     this._handleInputKeyPress = null;
     this._updateFindbar = null;
     this._addKeymaps = null;
-    this._citationsListener = null;
     this._contextMenuEnabledListener = null;
     this._minimalListener = null;
     this._handleFindbarOpenEvent = null;
@@ -2647,9 +2531,6 @@ class BrowseBotLLM {
 
   get streamEnabled() {
     return PREFS.streamEnabled;
-  }
-  get citationsEnabled() {
-    return PREFS.citationsEnabled;
   }
 
   get llmProvider() {
@@ -2760,29 +2641,6 @@ ${pageContextBlock}`;
 
     systemPrompt += this.buildAskOnPagePrompt(locale, pageContextBlock);
     return systemPrompt;
-  }
-
-  parseModelResponseText(responseText) {
-    let answer = responseText;
-    let citations = [];
-
-    if (PREFS.citationsEnabled) {
-      try {
-        const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-        const jsonString = jsonMatch ? jsonMatch[1] : responseText;
-        const parsedContent = JSON.parse(jsonString);
-
-        if (typeof parsedContent.answer === "string") {
-          answer = parsedContent.answer;
-          if (Array.isArray(parsedContent.citations)) {
-            citations = parsedContent.citations;
-          }
-        }
-      } catch (e) {
-        PREFS.debugError("Failed to parse citation JSON:", e, responseText);
-      }
-    }
-    return { answer, citations };
   }
 
   getHistory() {

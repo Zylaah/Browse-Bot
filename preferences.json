@@ -733,28 +733,6 @@
           "property": "extension.browse-bot.findbar-ai.enabled",
           "value": true
         }
-      },
-      {
-        "not": {
-          "property": "extension.browse-bot.findbar-ai.citations-enabled",
-          "value": true
-        }
-      }
-    ],
-    "operator": "AND"
-  },
-  {
-    "property": "extension.browse-bot.findbar-ai.citations-enabled",
-    "label": "Citations",
-    "type": "checkbox",
-    "defaultValue": false,
-    "description": "The AI will provide a link in its response pointing to the source text on the page.",
-    "conditions": [
-      {
-        "if": {
-          "property": "extension.browse-bot.findbar-ai.enabled",
-          "value": true
-        }
       }
     ]
   },
@@ -809,41 +787,11 @@
     ]
   },
   {
-    "property": "extension.browse-bot.findbar-ai.dnd-enabled",
-    "label": "Enable Drag & Drop and Resizing",
-    "type": "checkbox",
-    "defaultValue": true,
-    "description": "Allows the AI chat panel to be moved around the screen and resized.",
-    "conditions": [
-      {
-        "if": {
-          "property": "extension.browse-bot.findbar-ai.enabled",
-          "value": true
-        }
-      }
-    ]
-  },
-  {
-    "property": "extension.browse-bot.findbar-ai.remember-dimensions",
-    "label": "Remember Dimensions",
-    "type": "checkbox",
-    "defaultValue": true,
-    "description": "Automatically saves and restores the findbar's size.",
-    "conditions": [
-      {
-        "if": {
-          "property": "extension.browse-bot.findbar-ai.enabled",
-          "value": true
-        }
-      }
-    ]
-  },
-  {
     "property": "extension.browse-bot.findbar-ai.position",
     "label": "Corner Position",
     "type": "dropdown",
     "defaultValue": "top-right",
-    "description": "The corner the findbar will snap to after being dragged.",
+    "description": "The viewport corner where the findbar is anchored.",
     "options": [
       {
         "value": "top-left",

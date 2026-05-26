@@ -65,8 +65,7 @@
     }
   }
 
-  #ai-settings-modal-overlay,
-  .tool-confirmation-dialog {
+  #ai-settings-modal-overlay {
     &::before {
       position: absolute !important;
       align-self: center !important;
@@ -77,12 +76,6 @@
       opacity: 1 !important;
       border-radius: var(--acrylic-radius) !important;
     }
-  }
-
-  .tool-confirmation-dialog::before {
-    width: 400px;
-    padding: 20px;
-    height: 100px;
   }
 
   #ai-settings-modal-overlay::before {

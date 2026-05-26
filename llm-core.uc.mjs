@@ -234,17 +234,13 @@ export function renderMarkdownToElement(text, element) {
       const { markdown, excerpts, streamingExcerptIndex } = extractExcerptPlaceholders(text);
       const rawHtml = markedLib.parse(markdown, { gfm: true, breaks: false });
       const withExcerpts = injectExcerptBlocks(rawHtml, excerpts, streamingExcerptIndex, markedLib);
-      const withCitations = withExcerpts.replace(
-        /\[(\d+)\](?!\()/g,
-        '<span class="citation-link" data-citation-id="$1">[$1]</span>'
-      );
-      const withClasses = withCitations
+      const withClasses = withExcerpts
         .replace(/<table>/g, '<table class="llm-markdown-table">')
         .replace(/<hr>/gi, '<hr class="llm-markdown-hr" />')
         .replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
       const sanitized = DOMPurifyLib.sanitize(withClasses.trim(), {
         ALLOWED_URI_REGEXP: /^https?:\/\//i,
-        ADD_ATTR: ["target", "rel", "data-citation-id", "data-excerpt-quote", "tabindex", "role", "title", "aria-busy", "class"],
+        ADD_ATTR: ["target", "rel", "data-excerpt-quote", "tabindex", "role", "title", "aria-busy", "class"],
       });
       setElementHtmlFromMarkup(element, sanitized.trim());
       return;

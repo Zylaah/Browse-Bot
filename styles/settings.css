@@ -1,5 +1,4 @@
-#ai-settings-modal-overlay,
-.tool-confirmation-dialog {
+#ai-settings-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -269,26 +268,6 @@
     }
   }
 
-  #citations-agentic-mode-warning {
-    display: none;
-    color: red;
-    margin-bottom: 10px;
-  }
-
-  /* When Citations enabled hiding stream option*/
-  &:has(#pref-extension\.browse-bot\.findbar-ai\.citations-enabled:checked) {
-    .setting-item:has(#pref-extension\.browse-bot\.findbar-ai\.stream-enabled) {
-      display: none !important;
-    }
-
-    /* When citations and agentic mode enabled showing warning*/
-    :has(#pref-extension\.browse-bot\.findbar-ai\.agentic-mode:checked) {
-      #citations-agentic-mode-warning {
-        display: block !important;
-      }
-    }
-  }
-
   label[for="pref-ollama-api-key"] {
     &::after {
       content: " (Set any value)";
@@ -304,30 +283,8 @@
 
     /* Hide findbar sections */
     .settings-section {
-      &:has(#pref-extension\.browse-bot\.findbar-ai\.agentic-mode),
       &:has(#pref-extension\.browse-bot\.findbar-ai\.context-menu-enabled),
       &:has([data-pref="accessibility.typeaheadfind"]) {
-        display: none !important;
-      }
-    }
-  }
-
-  /* When URLBar AI is disabled */
-  &:has(#pref-extension\.browse-bot\.urlbar-ai-enabled:not(:checked)) {
-    /* Hide URLBar AI dependent settings */
-    .setting-item {
-      &:has([data-pref="extension.browse-bot.urlbar-ai.animations-enabled"]),
-      &:has([data-pref="extension.browse-bot.urlbar-ai.hide-suggestions"]) {
-        display: none !important;
-      }
-    }
-  }
-
-  /* When agentic Mode is disabled */
-  &:has(#pref-extension\.browse-bot\.findbar-ai\.agentic-mode:not(:checked)) {
-    .setting-item {
-      &:has(#pref-extension\.browse-bot\.findbar-ai\.conform-before-tool-call),
-      &:has(#pref-max-tool-calls) {
         display: none !important;
       }
     }
@@ -343,12 +300,6 @@
         display: none !important;
       }
     }
-  }
-
-  /* When Drag and Drop is disabled */
-  &:has(#pref-extension\.browse-bot\.findbar-ai\.dnd-enabled:not(:checked))
-    .setting-item:has(#pref-extension\.browse-bot\.findbar-ai\.remember-dimensions) {
-    display: none !important;
   }
 }
 
