@@ -55,7 +55,7 @@
     align-items: center !important;
     box-sizing: border-box;
     position: fixed;
-    top: 35px;
+    top: 15px;
     left: calc(100% - 15px - var(--findbar-width, 400px));
     width: 400px !important;
     max-width: 400px !important;
@@ -82,12 +82,12 @@
     }
 
     @media -moz-pref("extension.browse-bot.findbar-ai.position", "top-right") {
-      top: 35px;
+      top: 15px;
       left: calc(100% - 15px - var(--findbar-width, 400px));
     }
 
     @media -moz-pref("extension.browse-bot.findbar-ai.position", "top-left") {
-      top: 35px;
+      top: 15px;
       left: 15px;
     }
 
